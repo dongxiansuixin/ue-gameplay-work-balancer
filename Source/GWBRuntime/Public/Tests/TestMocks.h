@@ -17,7 +17,6 @@ class UGWBManagerMock : public UGWBManager
 {
 	GENERATED_BODY()
 public:
-	UGWBBudgeter* TEST_GetBudgeter() { return Budgeter; };
 	UGWBScheduler* TEST_GetScheduler() { return Scheduler; };
 	FGWBWorkUnitHandle TEST_ScheduleWork(const FName& WorkGroupId, const FGWBWorkOptions& WorkOptions) { return ScheduleWork(WorkGroupId, WorkOptions); }
 	void TEST_DoWork() { DoWork(); };
@@ -36,7 +35,6 @@ public:
 	void FakeInitialize()
 	{
 		Scheduler = NewObject<UGWBScheduler>();
-		Budgeter = NewObject<UGWBBudgeter>();
 	};
 };
 

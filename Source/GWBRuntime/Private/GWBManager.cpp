@@ -1,17 +1,15 @@
 #include "GWBManager.h"
 #include "GWBRuntimeModule.h"
-#include "CVars.h"
 #include "GWBSubsystem.h"
-#include "Stats.h"
-#include "DataTypes/GWBTimeSlicedScope.h"
-#include "DataTypes/GWBTimeSliceResetScope.h"
+#include "DataTypes/GWBTimeSlicedLoopScope.h"
+#include "DataTypes/GWBTimeSliceScopedHandle.h"
 #include "DataTypes/GWBWorkUnitHandle.h"
-#include "Utils/TSetUtils.h"
+#include "Stats.h"
+#include "CVars.h"
 
 void UGWBManager::Initialize()
 {
 	Scheduler = NewObject<UGWBScheduler>();
-	Budgeter = NewObject<UGWBBudgeter>();
 	
 	// Generate work categories from definitions
 	for (auto& Def : WorkGroupDefinitions)
@@ -33,7 +31,6 @@ void UGWBManager::Reset()
 	bPendingReset = false;
 	// EscalationScalar = 0.0;
 	Scheduler->Stop();
-	Budgeter->Reset();
 	for (auto ItCategory = WorkGroups.CreateIterator(); ItCategory; ++ItCategory)
 	{
 		for (auto& WorkUnit : ItCategory->WorkUnitsQueue)
@@ -82,12 +79,16 @@ FGWBWorkUnitHandle UGWBManager::ScheduleWork(const FName& WorkGroupId, const FGW
 	                                             });
 
 	// Insert sort the unit of work instance into the group's work unit
-	const auto NewIndex = WorkGroup.WorkUnitsQueue.Insert(WorkUnit, InsertIndex);
+	WorkGroup.WorkUnitsQueue.Insert(WorkUnit, InsertIndex);
 	
-	Budgeter->OnWorkUnitScheduled();
 	TotalWorkCount++;
+	SET_DWORD_STAT(STAT_GameWorkBalancer_WorkCount, TotalWorkCount);
 
-	UE_LOG(Log_GameplayWorkBalancer, VeryVerbose, TEXT("UGameplayWorkBalancer::ScheduleWorkUnit -> Group: %s, Instance %d (GroupWorkCount: %d, GlobalWorkCount: %d)"), *WorkGroupId.ToString(), WorkUnit.GetId(), WorkGroup.WorkUnitsQueue.Num(), Budgeter->WorkUnitsCount);
+	UE_LOG(Log_GameplayWorkBalancer, VeryVerbose, TEXT("UGameplayWorkBalancer::ScheduleWorkUnit -> Group: %s, Instance %d (GroupWorkCount: %d, GlobalWorkCount: %d)"),
+			*WorkGroupId.ToString(),
+			WorkUnit.GetId(),
+			WorkGroup.WorkUnitsQueue.Num(),
+			TotalWorkCount);
 
 	Scheduler->Start();
 
@@ -97,7 +98,10 @@ void UGWBManager::DoWork()
 {
 	SCOPE_CYCLE_COUNTER(STAT_DoWorkForFrame);
 
-	const double TimeSinceLastWork = FPlatformTime::Seconds() - Budgeter->LastWorkTimestamp;
+	// when this struct goes out of scope it's destructor will reset the time slicer we use to budget the gameplay work balancer
+	FGWBTimeSliceScopedHandle TimeSlicer(this, FName("GameplayWorkBalancer"));
+
+	const double TimeSinceLastWork = FPlatformTime::Seconds() - TimeSlicer.GetLastCycleTimestamp();
 	OnBeforeDoWorkDelegate.Broadcast(TimeSinceLastWork);
 	bIsDoingWork = true;
 
@@ -110,43 +114,32 @@ void UGWBManager::DoWork()
 			WorkGroupsWithWork.Add(Group.Def.Id);
 		}
 	}
-	
-	Budgeter->Start();
 
+	// allow extensions to plug in to modify the frame budget
+	double FrameBudget = (double)CVarGWB_FrameBudget.GetValueOnGameThread();
+	ApplyBudgetModifiers(FrameBudget);
+	
 	// Do work for each group
 	{
 		SCOPE_CYCLE_COUNTER(STAT_DoWorkForFrame_Groups);
 
-		// when this struct goes out of scope it's destructor will reset the time slicer we use to budget the gameplay work balancer
-		FGWBTimeSliceResetScope ResetTimeSlicer(this, FName("GameplayWorkBalancer"));
-
-		UE_LOG(Log_GameplayWorkBalancer, VeryVerbose, TEXT("UGWBManager::DoWork -> Start (NumGroups: %d, GlobalWorkCount: %d, RemainingTimeBudget: %f)"),
+		UE_LOG(Log_GameplayWorkBalancer, VeryVerbose, TEXT("UGWBManager::DoWork -> Start (NumGroups: %d, GlobalWorkCount: %d, TimeBudget: %f)"),
 			WorkGroupsWithWork.Num(),
-			Budgeter->WorkUnitsCount,
-			Budgeter->GetRemainingTimeInBudget(),
+			TotalWorkCount,
+			CVarGWB_FrameBudget.GetValueOnGameThread()
 		);
 		
 		for (auto& WorkGroup : WorkGroups)
 		{
 			// this scoped struct will increment the time slicer within this for loop
-			FGWBTimeSlicedScope TimeSlicedWork(this, FName("GameplayWorkBalancer"), (double)CVarGWB_FrameBudget.GetValueOnGameThread(), 0);
+			FGWBTimeSlicedLoopScope TimeSlicedWork(this, FName("GameplayWorkBalancer"), FrameBudget, 0);
 			
 			// if there's no work to be done, skip this group
 			if (WorkGroup.WorkUnitsQueue.Num() == 0) continue;
-			
-			// 
-			Budgeter->StartGroup(WorkGroup.Def.MaxFrameBudget, WorkGroup.Def.MaxWorkUnitsPerFrame);
 
 			if (TimeSlicedWork.IsOverBudget())
 			{
 				UE_LOG(Log_GameplayWorkBalancer, VeryVerbose, TEXT("UGWBManager::DoWork -> OVER BUDGET. Skip Group: %s (NumSkippedFrames: %d MaxNumSkippedFrames: %d)"), *WorkGroup.Def.Id.ToString(), WorkGroup.NumSkippedFrames, WorkGroup.Def.MaxNumSkippedFrames);
-			}
-			
-			// we are out of time based on our budget
-			const auto RemainingBudget = Budgeter->BudgetForFrameExceededTime - FPlatformTime::Seconds();
-			if (RemainingBudget <= 0)
-			{
-				UE_LOG(Log_GameplayWorkBalancer, VeryVerbose, TEXT("UGWBManager::DoWork -> Skip Group: %s, Num Skipped: %d (max: %d), Reason: Over frame budget"), *WorkGroup.Def.Id.ToString(), WorkGroup.NumSkippedFrames, WorkGroup.Def.MaxNumSkippedFrames);
 				WorkGroup.NumSkippedFrames++;
 				// if we skipped work for this group, use it's configuration to control how much to escalate it's own priority when skipped
 				WorkGroup.PriorityOffset += WorkGroup.Def.SkipPriorityDelta;
@@ -161,8 +154,8 @@ void UGWBManager::DoWork()
 
 		UE_LOG(Log_GameplayWorkBalancer, VeryVerbose, TEXT("UGWBManager::DoWork -> End (NumGroups: %d, WorkUnitsDoneThisCycle: %d, TimeSpent: %.3f)"),
 			WorkGroupsWithWork.Num(),
-			Budgeter->WorkUnitsDoneThisCycle,
-			FPlatformTime::Seconds() - Budgeter->LastWorkTimestamp
+			TimeSlicer.GetWorkUnitsCompleted(),
+			FPlatformTime::Seconds() - TimeSlicer.GetLastCycleTimestamp()
 		);
 	}
 
@@ -182,25 +175,8 @@ void UGWBManager::DoWork()
 		return;
 	}
 
-	// const bool NeedsToScheduleNextFrame = TSetUtils::Reduce<FGWBWorkGroup, bool>(WorkGroups, [](bool Accumulator, const FGWBWorkGroup& WorkGroup)
-	// {
-	// 	return Accumulator || WorkGroup.WorkUnitsQueue.Num() > 0;
-	// }, false);
-
-	// // figure out if there is any work remaining in any of the work groups
-	// const bool NeedsToScheduleNextFrame = [&](){
-	// 	for (auto& WorkGroup : WorkGroups)
-	// 	{
-	// 		if (WorkGroup.WorkUnitsQueue.Num() > 0)
-	// 		{
-	// 			return true;
-	// 		}
-	// 	}
-	// 	return false;
-	// }();
-
 	// if we have still have work, schedule the next frame
-	const bool NeedsToScheduleNextFrame = Budgeter->WorkUnitsCount > 0;
+	const bool NeedsToScheduleNextFrame = TotalWorkCount > 0;
 	if (NeedsToScheduleNextFrame)
 	{
 		Scheduler->Start();
@@ -211,82 +187,66 @@ void UGWBManager::DoWorkForGroup(FGWBWorkGroup& WorkGroup)
 	SCOPE_CYCLE_COUNTER(STAT_DoWorkForGroup);
 
 	// when this struct goes out of scope it's destructor will reset the time slicer we use to budget the group
-	FGWBTimeSliceResetScope ResetTimeSlicerForGroup(this, WorkGroup.Def.Id);
+	FGWBTimeSliceScopedHandle GroupTimeSliceHandle(this, WorkGroup.Def.Id);
 
-	UE_LOG(Log_GameplayWorkBalancer, VeryVerbose, TEXT("UGWBManager::DoWorkForGroup -> Group: %s, Instances: %d, Start: %.3f, Max: %.3f"),
+	UE_LOG(Log_GameplayWorkBalancer, VeryVerbose, TEXT("UGWBManager::DoWorkForGroup -> Group: %s, WorkUnits: %d"),
 		*WorkGroup.Def.Id.ToString(),
-		WorkGroup.WorkUnitsQueue.Num(),
-		FPlatformTime::Seconds(),
-		Budgeter->BudgetForGroupExceededTimestamp);
+		WorkGroup.WorkUnitsQueue.Num());
 
 	for (int32 i = 0; i < WorkGroup.WorkUnitsQueue.Num(); i++)
 	{
 		// this scoped struct will increment the time slicer within this for loop
-		FGWBTimeSlicedScope TimeSlicedWork(this, WorkGroup.Def.Id, WorkGroup.Def.MaxFrameBudget, WorkGroup.Def.MaxWorkUnitsPerFrame);
+		FGWBTimeSlicedLoopScope TimeSlicedWork(this, WorkGroup.Def.Id, WorkGroup.Def.MaxFrameBudget, WorkGroup.Def.MaxWorkUnitsPerFrame);
 
-		if (TimeSlicedWork.IsOverUnitCountBudget())
-		{
-			UE_LOG(Log_GameplayWorkBalancer, VeryVerbose, TEXT("UGWBManager::DoWorkForGroup -> OVER GROUP UNIT COUNT BUDGET Group: %s, Units Remaining: %d"),
-				*WorkGroup.Def.Id.ToString(),
-				WorkGroup.WorkUnitsQueue.Num());
-		}
-
-		if (TimeSlicedWork.IsOverFrameTimeBudget())
-		{
-			UE_LOG(Log_GameplayWorkBalancer, VeryVerbose, TEXT("UGWBManager::DoWorkForGroup -> OVER GROUP TIME BUDGET Group: %s, Units Remaining: %d"),
-				*WorkGroup.Def.Id.ToString(),
-				WorkGroup.WorkUnitsQueue.Num());
-		}
-		
 		auto& WorkUnit = WorkGroup.WorkUnitsQueue[i];
 
 		// START budget checks
-		if (Budgeter->HasCurrentGroupUnitBudgetBeenExceeded())
+		// BREAK if we've reached MAX count of units of work in this group allowed
+		if (TimeSlicedWork.IsOverUnitCountBudget())
 		{
-			UE_LOG(Log_GameplayWorkBalancer, VeryVerbose, TEXT("UGWBManager::DoWorkForGroup -> Reached max %d InstancesPerFrame for Group: %s, Instance %d (remaining: %d, global: %d)"),
-					WorkGroup.Def.MaxWorkUnitsPerFrame,
-					*WorkGroup.Def.Id.ToString(),
-					i,
-					WorkGroup.WorkUnitsQueue.Num(),
-					Budgeter->WorkUnitsCount);
-			break; // BREAK if we've reached MAX count of units of work in this group allowed
-		}
-		const double StartWorkTimestamp = FPlatformTime::Seconds();
-		const double TimeElapsedSinceScheduled = StartWorkTimestamp - WorkUnit.ScheduledTimestamp;
-		const bool HasUnitExceedMaxIdleTime = WorkUnit.Options.MaxDelay > 0 && TimeElapsedSinceScheduled > WorkUnit.Options.MaxDelay;
-		// TODO: Don't use max delay directly, as that could cause all instances scheduled at the same time to also do work at the same time
-		if (!HasUnitExceedMaxIdleTime && Budgeter->HasCurrentGroupTimeBudgetBeenExceeded())
-		{
-			UE_LOG(Log_GameplayWorkBalancer, VeryVerbose, TEXT("UGWBManager::DoWorkForGroup -> Exceeded time for Group: %s, Instance %d (remaining: %d, global: %d), Start: %.3f"),
+			UE_LOG(Log_GameplayWorkBalancer, VeryVerbose, TEXT("UGWBManager::DoWorkForGroup -> OVER GROUP UNIT COUNT BUDGET Group: %s, WorkUnits Remaining: %d"),
 				*WorkGroup.Def.Id.ToString(),
-				i,
-				WorkGroup.WorkUnitsQueue.Num(),
-				Budgeter->WorkUnitsCount,
-				StartWorkTimestamp);
-			break; // BREAK if we've run out of time budget for this group
+				WorkGroup.WorkUnitsQueue.Num());
+			break;
+		}
+
+		// BREAK if we've run out of time budget for this group
+		if (TimeSlicedWork.IsOverFrameTimeBudget())
+		{
+			UE_LOG(Log_GameplayWorkBalancer, VeryVerbose, TEXT("UGWBManager::DoWorkForGroup -> OVER GROUP TIME BUDGET Group: %s, WorkUnits Remaining: %d"),
+				*WorkGroup.Def.Id.ToString(),
+				WorkGroup.WorkUnitsQueue.Num());
+			
+			const double StartWorkTimestamp = FPlatformTime::Seconds();
+			const double TimeElapsedSinceScheduled = StartWorkTimestamp - WorkUnit.ScheduledTimestamp;
+			const bool HasUnitExceedMaxIdleTime = WorkUnit.Options.MaxDelay > 0 && TimeElapsedSinceScheduled > WorkUnit.Options.MaxDelay;
+			// TODO: Don't use max delay directly, as that could cause all instances scheduled at the same time to also do work at the same time
+			if (!HasUnitExceedMaxIdleTime)
+			{
+				break; // BREAK if we've run out of time budget for this group
+			}
 		}
 		// END budget checks
 		
 		// Skip instance if aborted
 		if (WorkUnit.HasWork())
 		{
-			Budgeter->OnWorkUnitStarted();
+			const double StartWorkTimestamp = FPlatformTime::Seconds();
 			DoWorkForUnit(WorkUnit);
 			const double EndWorkTimestamp = FPlatformTime::Seconds();
 			const double UnitWorkDeltaTime = EndWorkTimestamp - StartWorkTimestamp;
-			Budgeter->OnWorkUnitComplete();
-			Budgeter->RecordGroupTelemetry(WorkGroup.Def.Id, UnitWorkDeltaTime);
 
 			TotalWorkCount--;
+			SET_DWORD_STAT(STAT_GameWorkBalancer_WorkCount, TotalWorkCount);
 			
 			UE_LOG(Log_GameplayWorkBalancer, VeryVerbose, TEXT("UGWBManager::DoWorkForGroup -> Did work for Group: %s, Instance %d (remaining: %d, global: %d), Start: %.3f, End: %.3f, Delta: %.3f, Avg: %.3f"),
 				*WorkGroup.Def.Id.ToString(),
 				WorkUnit.GetId(),
 				WorkGroup.WorkUnitsQueue.Num() - (WorkUnit.HasWork() ? 0 : 1),
-				Budgeter->WorkUnitsCount - (WorkUnit.HasWork() ? 0 : 1),
+				TotalWorkCount - (WorkUnit.HasWork() ? 0 : 1),
 				StartWorkTimestamp,
 				EndWorkTimestamp,
-				EndWorkTimestamp - StartWorkTimestamp,
+				UnitWorkDeltaTime,
 				WorkGroup.AverageUnitTime
 			);
 		}
@@ -305,11 +265,7 @@ void UGWBManager::DoWorkForGroup(FGWBWorkGroup& WorkGroup)
 void UGWBManager::DoWorkForUnit(const FGWBWorkUnit& WorkUnit) const
 {
 	SCOPE_CYCLE_COUNTER(STAT_DoWorkForUnit);
-	// technically it would be better if this was passed in from outside for consistency
-	// since time has elapsed to do a few instructions since, but API is much simpler when just estimating it here
-	const double MaxGroupTimestamp = Budgeter->BudgetForGroupExceededTimestamp;
 	const double StartInstanceTime = FPlatformTime::Seconds();
-	const float Budget = static_cast<float>(MaxGroupTimestamp - StartInstanceTime);
 	const float TimeSinceScheduled = static_cast<float>(StartInstanceTime - WorkUnit.ScheduledTimestamp);
 
 	// do the work!

@@ -18,7 +18,7 @@ UGWBTimeSlicer* UGWBTimeSlicer::Get(const UObject* WorldContextObject, FName Id)
 
 void UGWBTimeSlicer::Reset()
 {
-	CycleWorkUnitsDone = 0;
+	CycleWorkUnitsCompleted = 0;
 	CycleLastTimestamp = 0;
 	FrameBudgetExceededTimestamp = FPlatformTime::Seconds() + FrameTimeBudget;
 }
@@ -30,7 +30,7 @@ void UGWBTimeSlicer::StartWork()
 
 void UGWBTimeSlicer::EndWork()
 {
-	CycleWorkUnitsDone++;
+	CycleWorkUnitsCompleted++;
 	RecordTelemetry(FPlatformTime::Seconds() - CycleLastTimestamp);
 }
 
@@ -56,7 +56,7 @@ float UGWBTimeSlicer::GetRemainingTimeInBudget() const
 
 uint32 UGWBTimeSlicer::GetRemainingWorkUnitCountBudget() const
 {
-	return WorkUnitCountBudget - CycleWorkUnitsDone;
+	return WorkUnitCountBudget - CycleWorkUnitsCompleted;
 }
 
 UGWBTimeSlicer* UGWBTimeSlicer::ConfigureTimeBudget(double FrameTimeBudgetIn)

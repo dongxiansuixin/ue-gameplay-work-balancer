@@ -5,7 +5,7 @@
 #include "CoreMinimal.h"
 #include "Components/GWBTimeSlicer.h"
 #include "UObject/Object.h"
-#include "GWBTimeSlicedScope.generated.h"
+#include "GWBTimeSlicedLoopScope.generated.h"
 
 // TODO: implement - BudgetedForLoop(0.1f, 10, Array,[](){ });
 
@@ -13,17 +13,17 @@
  * 
  */
 USTRUCT()
-struct GWBRUNTIME_API FGWBTimeSlicedScope
+struct GWBRUNTIME_API FGWBTimeSlicedLoopScope
 {
 	GENERATED_BODY()
 	
-	FGWBTimeSlicedScope()
+	FGWBTimeSlicedLoopScope()
 			: Id(NAME_None)
 			,WorldContextObject(nullptr)
 	{
 	}
 
-	FGWBTimeSlicedScope(const UObject* WorldContext, FName Id, double FrameTimeBudgetIn, uint32 WorkCountBudgetIn)
+	FGWBTimeSlicedLoopScope(const UObject* WorldContext, FName Id, double FrameTimeBudgetIn, uint32 WorkCountBudgetIn)
 			: Id(Id)
 			,WorldContextObject(WorldContext)
 	{
@@ -34,7 +34,7 @@ struct GWBRUNTIME_API FGWBTimeSlicedScope
 			->StartWork();
 	}
 
-	~FGWBTimeSlicedScope()
+	~FGWBTimeSlicedLoopScope()
 	{
 		GlobalTimeSlicer.Get()->EndWork();
 	}

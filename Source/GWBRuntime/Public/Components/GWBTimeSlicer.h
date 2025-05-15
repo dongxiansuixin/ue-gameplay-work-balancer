@@ -35,6 +35,8 @@ public:
 	bool HasWorkUnitCountBudgetBeenExceeded() const;
 	float GetRemainingTimeInBudget() const;
 	uint32 GetRemainingWorkUnitCountBudget() const;
+	FORCEINLINE uint32 GetCycleWorkUnitsCompleted() const { return CycleWorkUnitsCompleted; };
+	FORCEINLINE double GetCycleLastTimestamp() const { return CycleLastTimestamp; };
 	// </api>
 
 	// <builder-methods>
@@ -50,7 +52,7 @@ private:
 	// </config>
 
 	// <state>
-	uint32 CycleWorkUnitsDone = 0;
+	uint32 CycleWorkUnitsCompleted = 0;
 	double CycleLastTimestamp; // this is a specific point in platform time
 	double FrameBudgetExceededTimestamp; // this is a specific point in platform time
 	// </state>

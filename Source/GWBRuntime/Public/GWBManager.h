@@ -6,7 +6,6 @@
 
 // gameplay work balancer
 #include "Components/GWBScheduler.h"
-#include "Components/GWBBudgeter.h"
 #include "DataTypes/GWBWorkGroup.h"
 #include "DataTypes/GWBWorkUnit.h"
 #include "DataTypes/GWBWorkOptions.h"
@@ -58,6 +57,12 @@ protected:
 	void				DoWorkForGroup(FGWBWorkGroup& WorkGroup);
 	void				DoWorkForUnit(const FGWBWorkUnit& WorkUnit) const;
 
+	/// <extension-points>
+	void				ApplyBudgetModifiers(double& FrameBudget);
+	void				OnWorkGroupDeferred(FName WorkGroupId);
+	void				OnWorkUnitDeferred(FName WorkGroupId);
+	/// </extension-points>
+	
 	/// <state>
 	bool				bIsDoingWork;
 	uint32				TotalWorkCount;
@@ -68,5 +73,4 @@ protected:
 protected:
 	
 	UPROPERTY() TObjectPtr<UGWBScheduler>	Scheduler;
-	UPROPERTY() TObjectPtr<UGWBBudgeter>	Budgeter;
 };
