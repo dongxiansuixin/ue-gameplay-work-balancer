@@ -57,9 +57,15 @@ struct GWBRUNTIME_API FGWBWorkUnit
 	FORCEINLINE bool HasCompletedWork() const { return bHasCompletedWork; }
 	FORCEINLINE void MarkCompleted() const { bHasCompletedWork = true; }
 	FORCEINLINE void MarkAborted() const { bIsAborted = true; }
+	
+	// Get effective priority including any runtime adjustments
+	FORCEINLINE int32 GetEffectivePriority() const { return Options.Priority + PriorityOffset; }
 
 	FORCEINLINE FGWBOnDoWorkDelegate& GetWorkCallback() const { return CallbackHandle.Get()->WorkCallback; }
 	FORCEINLINE FGWBAbortWorkDelegate& GetAbortCallback() const { return CallbackHandle.Get()->AbortCallback; }
+	
+	// Runtime priority adjustment for this work unit
+	int32 PriorityOffset = 0;
 
 protected:
     mutable bool bHasCompletedWork;

@@ -59,15 +59,41 @@ protected:
 
 	/// <extension-points>
 	void				ApplyBudgetModifiers(double& FrameBudget);
+	void				ApplyGroupBudgetModifiers(FName GroupId, double& TimeBudget, int32& UnitCountBudget);
 	void				OnWorkGroupDeferred(FName WorkGroupId);
 	void				OnWorkUnitDeferred(FName WorkGroupId);
 	/// </extension-points>
+	
+public:
+	// Register a budget modifier
+	UFUNCTION(BlueprintCallable, Category = "GameWorkBalancer|Extensions")
+	void RegisterBudgetModifier(UObject* BudgetModifier);
+	
+	// Register a priority modifier
+	UFUNCTION(BlueprintCallable, Category = "GameWorkBalancer|Extensions")
+	void RegisterPriorityModifier(UObject* PriorityModifier);
+	
+	// Register a deferred handler
+	UFUNCTION(BlueprintCallable, Category = "GameWorkBalancer|Extensions")
+	void RegisterDeferredHandler(UObject* DeferredHandler);
+	
+	// Unregister modifiers
+	UFUNCTION(BlueprintCallable, Category = "GameWorkBalancer|Extensions")
+	void UnregisterModifier(UObject* Modifier);
 	
 	/// <state>
 	bool				bIsDoingWork;
 	uint32				TotalWorkCount;
 	TSet<FGWBWorkGroup, FGWBWorkGroupSetKeyFuncs> WorkGroups;
 	bool				bPendingReset;
+	double              EscalationScalar;      // Current escalation multiplier
+	double              LastEscalationUpdate;  // Last time the escalation was updated
+	uint32              DeferredWorkCount;     // Count of work units deferred in current frame
+
+	// Extension framework
+	TArray<TScriptInterface<IGWBBudgetModifierInterface>> BudgetModifiers;
+	TArray<TScriptInterface<IGWBPriorityModifierInterface>> PriorityModifiers;
+	TArray<TScriptInterface<IGWBDeferredHandlerInterface>> DeferredHandlers;
     /// </state>
 
 protected:
