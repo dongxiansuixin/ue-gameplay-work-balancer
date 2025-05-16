@@ -9,6 +9,7 @@
 #include "DataTypes/GWBWorkGroup.h"
 #include "DataTypes/GWBWorkUnit.h"
 #include "DataTypes/GWBWorkOptions.h"
+#include "Extensions/ModifierManager.h"
 
 #include "GWBManager.generated.h"
 
@@ -33,7 +34,9 @@ public:
 	void Initialize();
 	
 	/**
-	 * Schedules work in a group
+	 * @param WorkGroupId the group the work should be scheduled for.
+	 * @param WorkOptions special options for this unit of work.
+	 * @returns A work handle that can be used to register a callback when work is ready to be done
 	 * NOTE: call AbortGameWork or abort the returned promise to cancel the work.
 	 */
 	UFUNCTION(BlueprintCallable, Category = "GameWorkBalancer", meta=(GameplayTagFilter="GameWork"))
@@ -46,57 +49,40 @@ public:
 	UPROPERTY()
 	FGWBOnBeforeDoWorkDelegate OnBeforeDoWorkDelegate;
 
+	/** Work Group settings that can be defined in the INI */
 	UPROPERTY(Config)
 	TArray<FGWBWorkGroupDefinition> WorkGroupDefinitions;
 
 protected:
 
+	/// <core-api>
 	void				Reset();
 	FGWBWorkUnitHandle	ScheduleWork(const FName& WorkGroupId, const FGWBWorkOptions& WorkOptions);
 	void				DoWork();
 	void				DoWorkForGroup(FGWBWorkGroup& WorkGroup);
 	void				DoWorkForUnit(const FGWBWorkUnit& WorkUnit) const;
+	/// </core-api>
 
 	/// <extension-points>
 	void				ApplyBudgetModifiers(double& FrameBudget);
 	void				ApplyGroupBudgetModifiers(FName GroupId, double& TimeBudget, int32& UnitCountBudget);
+	void				OnWorkScheduled(FName GroupId);
+	void				OnWorkDeferred(uint32 DeferredWorkUnitCount);
 	void				OnWorkGroupDeferred(FName WorkGroupId);
 	void				OnWorkUnitDeferred(FName WorkGroupId);
 	/// </extension-points>
 	
 public:
-	// Register a budget modifier
-	UFUNCTION(BlueprintCallable, Category = "GameWorkBalancer|Extensions")
-	void RegisterBudgetModifier(UObject* BudgetModifier);
-	
-	// Register a priority modifier
-	UFUNCTION(BlueprintCallable, Category = "GameWorkBalancer|Extensions")
-	void RegisterPriorityModifier(UObject* PriorityModifier);
-	
-	// Register a deferred handler
-	UFUNCTION(BlueprintCallable, Category = "GameWorkBalancer|Extensions")
-	void RegisterDeferredHandler(UObject* DeferredHandler);
-	
-	// Unregister modifiers
-	UFUNCTION(BlueprintCallable, Category = "GameWorkBalancer|Extensions")
-	void UnregisterModifier(UObject* Modifier);
 	
 	/// <state>
 	bool				bIsDoingWork;
 	uint32				TotalWorkCount;
 	TSet<FGWBWorkGroup, FGWBWorkGroupSetKeyFuncs> WorkGroups;
 	bool				bPendingReset;
-	double              EscalationScalar;      // Current escalation multiplier
-	double              LastEscalationUpdate;  // Last time the escalation was updated
-	uint32              DeferredWorkCount;     // Count of work units deferred in current frame
-
-	// Extension framework
-	TArray<TScriptInterface<IGWBBudgetModifierInterface>> BudgetModifiers;
-	TArray<TScriptInterface<IGWBPriorityModifierInterface>> PriorityModifiers;
-	TArray<TScriptInterface<IGWBDeferredHandlerInterface>> DeferredHandlers;
-    /// </state>
+	/// </state>
 
 protected:
 	
 	UPROPERTY() TObjectPtr<UGWBScheduler>	Scheduler;
+	FModifierManager ModifierManager; // Extension framework
 };

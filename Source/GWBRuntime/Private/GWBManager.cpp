@@ -4,7 +4,7 @@
 #include "DataTypes/GWBTimeSlicedLoopScope.h"
 #include "DataTypes/GWBTimeSliceScopedHandle.h"
 #include "DataTypes/GWBWorkUnitHandle.h"
-#include "Extensions/GWBModifierInterfaces.h"
+#include "Extensions/Modifiers.h"
 #include "Stats.h"
 #include "CVars.h"
 
@@ -17,80 +17,10 @@ void UGWBManager::Initialize()
 	{
 		WorkGroups.Add(FGWBWorkGroup(Def));
 	}
+
+	ModifierManager.AddBudgetModifier(FFrameBudgetEscalationModifier());
 	
 	// Scheduler->StartWorkCycleDelegate.BindRaw(this, &UGWBManager::DoWork);
-}
-
-void UGWBManager::RegisterBudgetModifier(UObject* BudgetModifier)
-{
-    if (!BudgetModifier) return;
-    
-    TScriptInterface<IGWBBudgetModifierInterface> ModifierInterface;
-    ModifierInterface.SetObject(BudgetModifier);
-    ModifierInterface.SetInterface(Cast<IGWBBudgetModifierInterface>(BudgetModifier));
-    
-    if (ModifierInterface.GetInterface())
-    {
-        BudgetModifiers.Add(ModifierInterface);
-    }
-}
-
-void UGWBManager::RegisterPriorityModifier(UObject* PriorityModifier)
-{
-    if (!PriorityModifier) return;
-    
-    TScriptInterface<IGWBPriorityModifierInterface> ModifierInterface;
-    ModifierInterface.SetObject(PriorityModifier);
-    ModifierInterface.SetInterface(Cast<IGWBPriorityModifierInterface>(PriorityModifier));
-    
-    if (ModifierInterface.GetInterface())
-    {
-        PriorityModifiers.Add(ModifierInterface);
-    }
-}
-
-void UGWBManager::RegisterDeferredHandler(UObject* DeferredHandler)
-{
-    if (!DeferredHandler) return;
-    
-    TScriptInterface<IGWBDeferredHandlerInterface> HandlerInterface;
-    HandlerInterface.SetObject(DeferredHandler);
-    HandlerInterface.SetInterface(Cast<IGWBDeferredHandlerInterface>(DeferredHandler));
-    
-    if (HandlerInterface.GetInterface())
-    {
-        DeferredHandlers.Add(HandlerInterface);
-    }
-}
-
-void UGWBManager::UnregisterModifier(UObject* Modifier)
-{
-    if (!Modifier) return;
-    
-    // Remove from all collections
-    for (int32 i = BudgetModifiers.Num() - 1; i >= 0; --i)
-    {
-        if (BudgetModifiers[i].GetObject() == Modifier)
-        {
-            BudgetModifiers.RemoveAt(i);
-        }
-    }
-    
-    for (int32 i = PriorityModifiers.Num() - 1; i >= 0; --i)
-    {
-        if (PriorityModifiers[i].GetObject() == Modifier)
-        {
-            PriorityModifiers.RemoveAt(i);
-        }
-    }
-    
-    for (int32 i = DeferredHandlers.Num() - 1; i >= 0; --i)
-    {
-        if (DeferredHandlers[i].GetObject() == Modifier)
-        {
-            DeferredHandlers.RemoveAt(i);
-        }
-    }
 }
 
 void UGWBManager::Reset()
@@ -103,9 +33,6 @@ void UGWBManager::Reset()
 	OnBeforeDoWorkDelegate.Clear();
 	bIsDoingWork = false;
 	bPendingReset = false;
-	EscalationScalar = 0.0;
-	LastEscalationUpdate = 0.0;
-	DeferredWorkCount = 0;
 	Scheduler->Stop();
 	for (auto ItCategory = WorkGroups.CreateIterator(); ItCategory; ++ItCategory)
 	{
@@ -146,17 +73,6 @@ FGWBWorkUnitHandle UGWBManager::ScheduleWork(const FName& WorkGroupId, const FGW
 	const double CurrentTime = FPlatformTime::Seconds();
 	FGWBWorkUnit WorkUnit(WorkOptions, CurrentTime);
 
-	// Apply priority modifiers to the work unit
-	for (const auto& Modifier : PriorityModifiers)
-	{
-		if (Modifier.GetInterface())
-		{
-			int32 Priority = WorkUnit.Options.Priority;
-			Modifier->ModifyWorkUnitPriority(WorkGroupId, Priority);
-			WorkUnit.PriorityOffset = Priority - WorkUnit.Options.Priority;
-		}
-	}
-
 	// Figure out the priority index of the work unit
 	const int32 InsertIndex = Algo::LowerBoundBy(WorkGroup.WorkUnitsQueue, WorkUnit,
 		[](const FGWBWorkUnit& ExistingWorkUnit) { return ExistingWorkUnit; },
@@ -177,6 +93,9 @@ FGWBWorkUnitHandle UGWBManager::ScheduleWork(const FName& WorkGroupId, const FGW
 			WorkGroup.WorkUnitsQueue.Num(),
 			TotalWorkCount);
 
+	// allow extensions to react to work scheduling
+	OnWorkScheduled(WorkGroupId);
+	
 	Scheduler->Start();
 
 	return FGWBWorkUnitHandle(WorkUnit);
@@ -215,7 +134,8 @@ void UGWBManager::DoWork()
 			TotalWorkCount,
 			CVarGWB_FrameBudget.GetValueOnGameThread()
 		);
-		
+
+		uint32 i = 0;
 		for (auto& WorkGroup : WorkGroups)
 		{
 			// this scoped struct will increment the time slicer within this for loop
@@ -230,9 +150,12 @@ void UGWBManager::DoWork()
 				WorkGroup.NumSkippedFrames++;
 				// if we skipped work for this group, use it's configuration to control how much to escalate it's own priority when skipped
 				WorkGroup.PriorityOffset += WorkGroup.Def.SkipPriorityDelta;
-				
-				// Track that this group was deferred for escalation
-				OnWorkGroupDeferred(WorkGroup.Def.Id);
+
+				// Track deferred work groups
+				for (int32 j = i; j < WorkGroup.WorkUnitsQueue.Num(); j++)
+				{
+					OnWorkGroupDeferred(WorkGroup.Def.Id);
+				}
 				
 				break;
 			}
@@ -241,6 +164,8 @@ void UGWBManager::DoWork()
 			WorkGroup.NumSkippedFrames = 0;
 			WorkGroup.PriorityOffset = 0;
 			DoWorkForGroup(WorkGroup);
+
+			i++;
 		}
 
 		UE_LOG(Log_GameplayWorkBalancer, VeryVerbose, TEXT("UGWBManager::DoWork -> End (NumGroups: %d, WorkUnitsDoneThisCycle: %d, TimeSpent: %.3f)"),
@@ -254,71 +179,30 @@ void UGWBManager::DoWork()
 	{
 		SCOPE_CYCLE_COUNTER(STAT_DoWorkForFrame_Reprioritize);
 		
-		// Apply priority modifiers
-		for (auto& WorkGroup : WorkGroups)
-		{
-			int32 Priority = WorkGroup.GetPriority();
-			for (const auto& Modifier : PriorityModifiers)
-			{
-				if (Modifier.GetInterface())
-				{
-					Modifier->ModifyGroupPriority(WorkGroup.Def.Id, Priority);
-				}
-			}
-			// Update priority offset based on modifiers
-			int32 BaseOffset = Priority - WorkGroup.Def.Priority;
-			// Only update if there was a change from modifiers (preserve the SkipPriorityDelta changes)
-			if (BaseOffset != 0)
-			{
-				WorkGroup.PriorityOffset = BaseOffset;
-			}
-		}
+		// // Apply priority modifiers
+		// for (auto& WorkGroup : WorkGroups)
+		// {
+		// 	int32 Priority = WorkGroup.GetPriority();
+		// 	for (const auto& Modifier : PriorityModifiers)
+		// 	{
+		// 		if (Modifier.GetInterface())
+		// 		{
+		// 			Modifier->ModifyGroupPriority(WorkGroup.Def.Id, Priority);
+		// 		}
+		// 	}
+		// 	// Update priority offset based on modifiers
+		// 	int32 BaseOffset = Priority - WorkGroup.Def.Priority;
+		// 	// Only update if there was a change from modifiers (preserve the SkipPriorityDelta changes)
+		// 	if (BaseOffset != 0)
+		// 	{
+		// 		WorkGroup.PriorityOffset = BaseOffset;
+		// 	}
+		// }
 		
 		// Sort work groups by modified priority
 		WorkGroups.Sort([&](const FGWBWorkGroup& A, const FGWBWorkGroup& B){
 			return A.GetPriority() < B.GetPriority();
 		});
-	}
-
-	// Update escalation based on deferred work
-	{
-		SCOPE_CYCLE_COUNTER(STAT_DoWorkForFrame_UpdateEscalation);
-		
-		const double CurrentTime = FPlatformTime::Seconds();
-		const double TimeSinceLastUpdate = LastEscalationUpdate > 0.0 ? (CurrentTime - LastEscalationUpdate) : 0.0;
-		LastEscalationUpdate = CurrentTime;
-		
-		const float EscalationThreshold = CVarGWB_EscalationCount.GetValueOnGameThread();
-		const float EscalationDuration = CVarGWB_EscalationDuration.GetValueOnGameThread();
-		const float EscalationDecay = CVarGWB_EscalationDecay.GetValueOnGameThread();
-		
-		// If we have deferred work above threshold, increase escalation
-		if (DeferredWorkCount > EscalationThreshold && EscalationDuration > 0.0f)
-		{
-			// Scale up by proportion of elapsed time to total duration
-			const double EscalationStep = TimeSinceLastUpdate / EscalationDuration;
-			EscalationScalar = FMath::Min(EscalationScalar + EscalationStep, (double)CVarGWB_EscalationScalar.GetValueOnGameThread());
-			
-			UE_LOG(Log_GameplayWorkBalancer, Verbose, TEXT("UGWBManager::DoWork -> Escalation increased. DeferredWork: %d, Threshold: %d, New escalation: %f"),
-				DeferredWorkCount,
-				(int32)EscalationThreshold,
-				EscalationScalar);
-		}
-		// If we're under threshold, decrease escalation
-		else if (EscalationScalar > 0.0 && EscalationDecay > 0.0f)
-		{
-			// Scale down by proportion of elapsed time to total decay
-			const double DecayStep = TimeSinceLastUpdate / EscalationDecay;
-			EscalationScalar = FMath::Max(0.0, EscalationScalar - DecayStep);
-			
-			UE_LOG(Log_GameplayWorkBalancer, Verbose, TEXT("UGWBManager::DoWork -> Escalation decreased. DeferredWork: %d, Threshold: %d, New escalation: %f"),
-				DeferredWorkCount,
-				(int32)EscalationThreshold,
-				EscalationScalar);
-		}
-		
-		// Reset deferred work count for next frame
-		DeferredWorkCount = 0;
 	}
 
 	bIsDoingWork = false;
@@ -333,6 +217,7 @@ void UGWBManager::DoWork()
 	const bool NeedsToScheduleNextFrame = TotalWorkCount > 0;
 	if (NeedsToScheduleNextFrame)
 	{
+		ModifierManager.NotifyWorkDeferred(TotalWorkCount);
 		Scheduler->Start();
 	}
 };
@@ -410,6 +295,8 @@ void UGWBManager::DoWorkForGroup(FGWBWorkGroup& WorkGroup)
 
 			TotalWorkCount--;
 			SET_DWORD_STAT(STAT_GameWorkBalancer_WorkCount, TotalWorkCount);
+	
+			ModifierManager.NotifyWorkComplete(TotalWorkCount);
 			
 			UE_LOG(Log_GameplayWorkBalancer, VeryVerbose, TEXT("UGWBManager::DoWorkForGroup -> Did work for Group: %s, Instance %d (remaining: %d, global: %d), Start: %.3f, End: %.3f, Delta: %.3f, Avg: %.3f"),
 				*WorkGroup.Def.Id.ToString(),
@@ -445,78 +332,33 @@ void UGWBManager::DoWorkForUnit(const FGWBWorkUnit& WorkUnit) const
 	WorkUnit.MarkCompleted();
 };
 
+
 void UGWBManager::ApplyBudgetModifiers(double& FrameBudget)
 {
-	// Apply the escalation scalar to the frame budget
-	if (EscalationScalar > 0.0)
-	{
-		const double MaxEscalationScalar = CVarGWB_EscalationScalar.GetValueOnGameThread();
-		// Clamp the escalation to the maximum allowed
-		double ClampedEscalation = FMath::Min(EscalationScalar, MaxEscalationScalar);
-		// Apply escalation to frame budget: budget + (budget * escalation)
-		FrameBudget += (FrameBudget * ClampedEscalation);
-		
-		UE_LOG(Log_GameplayWorkBalancer, Verbose, TEXT("UGWBManager::ApplyBudgetModifiers -> Escalation applied. Base budget: %f, Escalation: %f, New budget: %f"),
-			CVarGWB_FrameBudget.GetValueOnGameThread(),
-			ClampedEscalation,
-			FrameBudget);
-	}
-	
-    // Apply budget modifiers
-    for (const auto& Modifier : BudgetModifiers)
-    {
-        if (Modifier.GetInterface())
-        {
-            Modifier->ModifyFrameBudget(FrameBudget, NAME_None);
-        }
-    }
+	ModifierManager.ProcessBudgetModifiers(FrameBudget);
 }
 
 void UGWBManager::ApplyGroupBudgetModifiers(FName GroupId, double& TimeBudget, int32& UnitCountBudget)
 {
-    // Apply budget modifiers
-    for (const auto& Modifier : BudgetModifiers)
-    {
-        if (Modifier.GetInterface())
-        {
-            Modifier->ModifyGroupBudget(GroupId, TimeBudget, UnitCountBudget);
-        }
-    }
+	// TODO: extensions could use this
+}
+
+void UGWBManager::OnWorkScheduled(FName GroupId)
+{
+	ModifierManager.NotifyWorkScheduled(TotalWorkCount);
+}
+
+void UGWBManager::OnWorkDeferred(uint32 DeferredWorkUnitCount)
+{
+	ModifierManager.NotifyWorkDeferred(DeferredWorkUnitCount);
 }
 
 void UGWBManager::OnWorkGroupDeferred(FName WorkGroupId)
 {
-    // Count entire group as deferred
-    for (auto& WorkGroup : WorkGroups)
-    {
-        if (WorkGroup.Def.Id == WorkGroupId)
-        {
-            DeferredWorkCount += WorkGroup.WorkUnitsQueue.Num();
-            break;
-        }
-    }
-    
-    // Notify deferred handlers
-    for (const auto& Handler : DeferredHandlers)
-    {
-        if (Handler.GetInterface())
-        {
-            Handler->HandleDeferredWorkGroup(WorkGroupId);
-        }
-    }
+	// TODO: extensions could use this
 }
 
 void UGWBManager::OnWorkUnitDeferred(FName WorkGroupId)
 {
-    // Count a single work unit as deferred
-    DeferredWorkCount++;
-    
-    // Notify deferred handlers
-    for (const auto& Handler : DeferredHandlers)
-    {
-        if (Handler.GetInterface())
-        {
-            Handler->HandleDeferredWorkUnit(WorkGroupId);
-        }
-    }
-}
+	// TODO: extensions could use this
+};
