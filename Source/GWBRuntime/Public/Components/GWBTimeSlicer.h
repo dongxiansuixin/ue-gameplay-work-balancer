@@ -7,7 +7,9 @@
 #include "GWBTimeSlicer.generated.h"
 
 /**
- * 
+ * Tracks how much time work has taken and provides data on remaining budget as well as telemetry for average work duration.
+ * You don't need to use the time slicer directly, it's intended intended to be used with a simplified scope API (`FGWBTimeSlicedLoopScope`).
+ * Check the example in FGWBTimeSlicedLoopScope.h to learn the basic approach.
  */
 UCLASS()
 class GWBRUNTIME_API UGWBTimeSlicer : public UObject
@@ -43,6 +45,11 @@ public:
 	UGWBTimeSlicer* ConfigureTimeBudget(double FrameTimeBudgetIn);
 	UGWBTimeSlicer* ConfigureWorkUnitCountBudget(uint32 WorkUnitCountBudgetIn);
 	// </builder-methods>
+
+	// <getters>
+	double GetFrameTimeBudget() const { return FrameTimeBudget; }
+	double GetWorkUnitCountBudget() const { return WorkUnitCountBudget; }
+	// </getters>
 
 private:
 

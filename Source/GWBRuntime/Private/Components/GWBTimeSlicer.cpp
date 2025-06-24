@@ -41,12 +41,12 @@ bool UGWBTimeSlicer::HasBudgetBeenExceeded() const
 
 bool UGWBTimeSlicer::HasFrameBudgetBeenExceeded() const
 {
-	return GetRemainingTimeInBudget() > 0;
+	return FrameTimeBudget > 0 ? GetRemainingTimeInBudget() > 0 : false;
 }
 
 bool UGWBTimeSlicer::HasWorkUnitCountBudgetBeenExceeded() const
 {
-	return GetRemainingWorkUnitCountBudget() > 0;
+	return WorkUnitCountBudget > 0 ? GetRemainingWorkUnitCountBudget() > 0 : false;
 }
 
 float UGWBTimeSlicer::GetRemainingTimeInBudget() const
