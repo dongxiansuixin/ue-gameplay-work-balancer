@@ -15,7 +15,7 @@ void FFrameBudgetEscalationModifierImpl::ModifyValueImpl(double& Value)
 		const double EscalationDeltaPerSec = (double)(CVarGWB_EscalationScalar.GetValueOnGameThread() / CVarGWB_EscalationDecay.GetValueOnGameThread());
 		EscalationScalar = FMath::Max(EscalationScalar - EscalationDeltaPerSec * DeltaTime, 0.0);
 	}
-	Value = Value * EscalationScalar;
+	Value += Value * EscalationScalar;
 	LastEscalationUpdateTimestamp = Now;
 }
 

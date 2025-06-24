@@ -1,74 +1,92 @@
-#pragma once
+// ModifierManager.h
+  #pragma once
 
-#include "Extensions.h"
+  #include "CoreMinimal.h"
+  #include "Extensions.h"
 
-class UGWBManager;
+  class UGWBManager;
 
-class FModifierManager {
+  class FModifierManager {
+      friend UGWBManager;
 
-	friend UGWBManager;
-	
-public:
+  public:
+      FModifierManager() = default;
+      ~FModifierManager() = default;
 
-	void AddBudgetModifier(ValueModifier<double> modifier) {
-		m_BudgetModifiers.push_back(std::move(modifier));
-	}
-    
-	void AddPriorityModifier(ValueModifier<double> modifier) {
-		m_PriorityModifiers.push_back(std::move(modifier));
-	}
+      // Disable copy operations
+      FModifierManager(const FModifierManager&) = delete;
+      FModifierManager& operator=(const FModifierManager&) = delete;
 
-protected:
-    
-	void ProcessBudgetModifiers(double& value) {
-		for (auto& modifier : m_BudgetModifiers) {
-			modifier.ModifyValue(value);
-		}
-	}
-    
-	void ProcessPriorityModifiers(double& value) {
-		for (auto& modifier : m_PriorityModifiers) {
-			modifier.ModifyValue(value);
-		}
-	}
-    
-	void NotifyWorkScheduled(const uint32& TotalWorkCount) {
-		for (auto& modifier : m_BudgetModifiers) {
-			modifier.OnWorkScheduled(TotalWorkCount);
-		}
-		for (auto& modifier : m_PriorityModifiers) {
-			modifier.OnWorkScheduled(TotalWorkCount);
-		}
-	}
-    
-	void NotifyWorkDeferred(const uint32& RemainingWorkCount) {
-		for (auto& modifier : m_BudgetModifiers) {
-			modifier.OnWorkDeferred(RemainingWorkCount);
-		}
-		for (auto& modifier : m_PriorityModifiers) {
-			modifier.OnWorkDeferred(RemainingWorkCount);
-		}
-	}
-    
-	void NotifyWorkComplete(const uint32& RemainingWorkCount) {
-		for (auto& modifier : m_BudgetModifiers) {
-			modifier.OnWorkComplete(RemainingWorkCount);
-		}
-		for (auto& modifier : m_PriorityModifiers) {
-			modifier.OnWorkComplete(RemainingWorkCount);
-		}
-	}
-    
-	void NotifyBudgetExceeded(EBudgetExceededType Type, const uint32& RemainingWorkCount) {
-		for (auto& modifier : m_BudgetModifiers) {
-			modifier.OnBudgetExceeded(Type, RemainingWorkCount);
-		}
-		for (auto& modifier : m_PriorityModifiers) {
-			modifier.OnBudgetExceeded(Type, RemainingWorkCount);
-		}
-	}
+      // Allow move operations
+      FModifierManager(FModifierManager&&) = default;
+      FModifierManager& operator=(FModifierManager&&) = default;
 
-private:
-	std::vector<ValueModifier<double>> m_BudgetModifiers;
-	std::vector<ValueModifier<double>> m_PriorityModifiers;
-};
+      // Reset the modifier lists
+      void Reset()
+      {
+          m_BudgetModifiers.Empty();
+          m_PriorityModifiers.Empty();
+      }
+
+      void AddBudgetModifier(ValueModifier<double> modifier) {
+          m_BudgetModifiers.Add(MoveTemp(modifier));
+      }
+
+      void AddPriorityModifier(ValueModifier<double> modifier) {
+          m_PriorityModifiers.Add(MoveTemp(modifier));
+      }
+
+  protected:
+
+      void ProcessBudgetModifiers(double& value) {
+          for (auto& modifier : m_BudgetModifiers) {
+              modifier.ModifyValue(value);
+          }
+      }
+
+      void ProcessPriorityModifiers(double& value) {
+          for (auto& modifier : m_PriorityModifiers) {
+              modifier.ModifyValue(value);
+          }
+      }
+
+      void NotifyWorkScheduled(const uint32& TotalWorkCount) {
+          for (auto& modifier : m_BudgetModifiers) {
+              modifier.OnWorkScheduled(TotalWorkCount);
+          }
+          for (auto& modifier : m_PriorityModifiers) {
+              modifier.OnWorkScheduled(TotalWorkCount);
+          }
+      }
+
+      void NotifyWorkDeferred(const uint32& RemainingWorkCount) {
+          for (auto& modifier : m_BudgetModifiers) {
+              modifier.OnWorkDeferred(RemainingWorkCount);
+          }
+          for (auto& modifier : m_PriorityModifiers) {
+              modifier.OnWorkDeferred(RemainingWorkCount);
+          }
+      }
+
+      void NotifyWorkComplete(const uint32& RemainingWorkCount) {
+          for (auto& modifier : m_BudgetModifiers) {
+              modifier.OnWorkComplete(RemainingWorkCount);
+          }
+          for (auto& modifier : m_PriorityModifiers) {
+              modifier.OnWorkComplete(RemainingWorkCount);
+          }
+      }
+
+      void NotifyBudgetExceeded(EBudgetExceededType Type, const uint32& RemainingWorkCount) {
+          for (auto& modifier : m_BudgetModifiers) {
+              modifier.OnBudgetExceeded(Type, RemainingWorkCount);
+          }
+          for (auto& modifier : m_PriorityModifiers) {
+              modifier.OnBudgetExceeded(Type, RemainingWorkCount);
+          }
+      }
+
+  private:
+      TArray<ValueModifier<double>> m_BudgetModifiers;
+      TArray<ValueModifier<double>> m_PriorityModifiers;
+  };
