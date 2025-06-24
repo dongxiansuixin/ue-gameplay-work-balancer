@@ -26,6 +26,7 @@ class GWBRUNTIME_API UGWBManager : public UObject
 // START for unit tests
 #if WITH_DEV_AUTOMATION_TESTS
 	friend class FGWBManagerTests;
+	friend class FGWBExtensionsTests;
 #endif
 // END for unit tests
 	
