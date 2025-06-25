@@ -25,6 +25,8 @@ struct GWBRUNTIME_API FGWBTimeSliceScopedHandle
 			: Id(Id)
 			,WorldContextObject(WorldContext)
 	{
+		UGWBTimeSlicer::Get(WorldContextObject.Get(), Id)
+			->Reset();	
 	}
 
 	FGWBTimeSliceScopedHandle(const UObject* WorldContext, const FName Id, double FrameTimeBudgetIn, uint32 WorkCountBudgetIn)

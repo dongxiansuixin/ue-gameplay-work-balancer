@@ -59,8 +59,8 @@ void UGWBManager::AbortWorkUnit(const UObject* WorldContextObject, FGWBWorkUnitH
 		for (auto& WorkUnit : ItCategory->WorkUnitsQueue)
 		{
 			if (WorkUnitHandle.GetId() == WorkUnit.GetId())
-{
-	WorkUnit.GetAbortCallback().ExecuteIfBound();
+			{
+				WorkUnit.GetAbortCallback().ExecuteIfBound();
 				WorkUnit.MarkAborted();
 				return;
 			}
@@ -100,7 +100,7 @@ FGWBWorkUnitHandle UGWBManager::ScheduleWork(const FName& WorkGroupId, const FGW
 	TotalWorkCount++;
 	SET_DWORD_STAT(STAT_GameWorkBalancer_WorkCount, TotalWorkCount);
 
-	UE_LOG(Log_GameplayWorkBalancer, VeryVerbose, TEXT("UGameplayWorkBalancer::ScheduleWorkUnit -> Group: %s, Instance %d (GroupWorkCount: %d, GlobalWorkCount: %d)"),
+	UE_LOG(Log_GameplayWorkBalancer, VeryVerbose, TEXT("UGWBManager::ScheduleWork -> Group: %s, Instance %d (GroupWorkCount: %d, GlobalWorkCount: %d)"),
 			*WorkGroupId.ToString(),
 			WorkUnit.GetId(),
 			WorkGroup.WorkUnitsQueue.Num(),
@@ -117,8 +117,13 @@ void UGWBManager::DoWork()
 {
 	SCOPE_CYCLE_COUNTER(STAT_DoWorkForFrame);
 
+	// allow extensions to plug in to modify the frame budget
+	double FrameBudget = (double)CVarGWB_FrameBudget.GetValueOnGameThread();
+	ApplyBudgetModifiers(FrameBudget);
+	int WorkCountBudget = CVarGWB_WorkCountBudget.GetValueOnGameThread();
+
 	// when this struct goes out of scope it's destructor will reset the time slicer we use to budget the gameplay work balancer
-	FGWBTimeSliceScopedHandle TimeSlicer(this, FName("GameplayWorkBalancer"));
+	FGWBTimeSliceScopedHandle TimeSlicer(this, FName("GameplayWorkBalancer"), FrameBudget, WorkCountBudget);
 
 	const double TimeSinceLastWork = FPlatformTime::Seconds() - TimeSlicer.GetLastCycleTimestamp();
 	OnBeforeDoWorkDelegate.Broadcast(TimeSinceLastWork);
@@ -134,10 +139,6 @@ void UGWBManager::DoWork()
 		}
 	}
 
-	// allow extensions to plug in to modify the frame budget
-	double FrameBudget = (double)CVarGWB_FrameBudget.GetValueOnGameThread();
-	ApplyBudgetModifiers(FrameBudget);
-	
 	// Do work for each group
 	{
 		SCOPE_CYCLE_COUNTER(STAT_DoWorkForFrame_Groups);
@@ -145,21 +146,18 @@ void UGWBManager::DoWork()
 		UE_LOG(Log_GameplayWorkBalancer, VeryVerbose, TEXT("UGWBManager::DoWork -> Start (NumGroups: %d, GlobalWorkCount: %d, TimeBudget: %f)"),
 			WorkGroupsWithWork.Num(),
 			TotalWorkCount,
-			CVarGWB_FrameBudget.GetValueOnGameThread()
+			FrameBudget
 		);
 
 		uint32 i = 0;
 		for (auto& WorkGroup : WorkGroups)
 		{
-			// this scoped struct will increment the time slicer within this for loop
-			FGWBTimeSlicedLoopScope TimeSlicedWork(this, FName("GameplayWorkBalancer"), FrameBudget, 0);
-			
 			// if there's no work to be done, skip this group
 			if (WorkGroup.WorkUnitsQueue.Num() == 0) continue;
 
-			if (TimeSlicedWork.IsOverBudget())
+			if (TimeSlicer.IsOverBudget())
 			{
-				UE_LOG(Log_GameplayWorkBalancer, VeryVerbose, TEXT("UGWBManager::DoWork -> OVER BUDGET. Skip Group: %s (NumSkippedFrames: %d MaxNumSkippedFrames: %d)"), *WorkGroup.Def.Id.ToString(), WorkGroup.NumSkippedFrames, WorkGroup.Def.MaxNumSkippedFrames);
+				UE_LOG(Log_GameplayWorkBalancer, Log, TEXT("UGWBManager::DoWork -> OVER BUDGET. Skip Group: %s (NumSkippedFrames: %d MaxNumSkippedFrames: %d)"), *WorkGroup.Def.Id.ToString(), WorkGroup.NumSkippedFrames, WorkGroup.Def.MaxNumSkippedFrames);
 				WorkGroup.NumSkippedFrames++;
 				// if we skipped work for this group, use it's configuration to control how much to escalate it's own priority when skipped
 				WorkGroup.PriorityOffset += WorkGroup.Def.SkipPriorityDelta;
@@ -240,26 +238,29 @@ void UGWBManager::DoWorkForGroup(FGWBWorkGroup& WorkGroup)
 
 	// when this struct goes out of scope it's destructor will reset the time slicer we use to budget the group
 	FGWBTimeSliceScopedHandle GroupTimeSliceHandle(this, WorkGroup.Def.Id);
+	
+	// allow extensions to plug in to modify the frame budget
+	double FrameBudget = (double)CVarGWB_FrameBudget.GetValueOnGameThread();
+	ApplyBudgetModifiers(FrameBudget);
+	int WorkCountBudget = CVarGWB_WorkCountBudget.GetValueOnGameThread();
 
 	// Apply group-specific budget modifiers
 	double GroupTimeBudget = WorkGroup.Def.MaxFrameBudget;
 	int32 GroupUnitCount = WorkGroup.Def.MaxWorkUnitsPerFrame;
 	ApplyGroupBudgetModifiers(WorkGroup.Def.Id, GroupTimeBudget, GroupUnitCount);
 
-	UE_LOG(Log_GameplayWorkBalancer, VeryVerbose, TEXT("UGWBManager::DoWorkForGroup -> Group: %s, WorkUnits: %d"),
-		*WorkGroup.Def.Id.ToString(),
-		WorkGroup.WorkUnitsQueue.Num());
-
 	for (int32 i = 0; i < WorkGroup.WorkUnitsQueue.Num(); i++)
 	{
 		// this scoped struct will increment the time slicer within this for loop
-		FGWBTimeSlicedLoopScope TimeSlicedWork(this, WorkGroup.Def.Id, GroupTimeBudget, GroupUnitCount);
+		FGWBTimeSlicedLoopScope TimeSlicedGroupWork(this, WorkGroup.Def.Id, GroupTimeBudget, GroupUnitCount); // budget for group
+		FGWBTimeSlicedLoopScope TimeSlicedWork(this, FName("GameplayWorkBalancer"), FrameBudget, WorkCountBudget); // budget for all work
 
 		auto& WorkUnit = WorkGroup.WorkUnitsQueue[i];
 
 		// START budget checks
 		// BREAK if we've reached MAX count of units of work in this group allowed
-		if (TimeSlicedWork.IsOverUnitCountBudget())
+		if (TimeSlicedGroupWork.IsOverUnitCountBudget() ||
+			TimeSlicedWork.IsOverUnitCountBudget())
 		{
 			UE_LOG(Log_GameplayWorkBalancer, VeryVerbose, TEXT("UGWBManager::DoWorkForGroup -> OVER GROUP UNIT COUNT BUDGET Group: %s, WorkUnits Remaining: %d"),
 				*WorkGroup.Def.Id.ToString(),
@@ -275,7 +276,8 @@ void UGWBManager::DoWorkForGroup(FGWBWorkGroup& WorkGroup)
 		}
 
 		// BREAK if we've run out of time budget for this group
-		if (TimeSlicedWork.IsOverFrameTimeBudget())
+		if (TimeSlicedGroupWork.IsOverFrameTimeBudget() ||
+			TimeSlicedWork.IsOverFrameTimeBudget())
 		{
 			UE_LOG(Log_GameplayWorkBalancer, VeryVerbose, TEXT("UGWBManager::DoWorkForGroup -> OVER GROUP TIME BUDGET Group: %s, WorkUnits Remaining: %d"),
 				*WorkGroup.Def.Id.ToString(),
