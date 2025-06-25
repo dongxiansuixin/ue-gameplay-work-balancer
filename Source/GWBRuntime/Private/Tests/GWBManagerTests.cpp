@@ -7,41 +7,6 @@
 #include "Tests/ScopedCvarOverrides.h"
 
 #if WITH_DEV_AUTOMATION_TESTS
-//
-// IMPLEMENT_SIMPLE_AUTOMATION_TEST(FGWBManagerDoWorkTests, "GWBRuntime.GWBManager.DoWork", EAutomationTestFlags_ApplicationContextMask | EAutomationTestFlags::ProductFilter)
-// bool FGWBManagerDoWorkTests::RunTest(const FString& Parameters)
-// {
-// 	FScopedCVarOverrideBool CvarEnabled(TEXT("gwb.enabled"), true);
-// 	FScopedCVarOverrideFloat CvarFrameBudget(TEXT("gwb.frame.budget"), 0.005f);
-// 	FScopedCVarOverrideFloat CvarFrameInterval(TEXT("gwb.frame.interval"), 0.0f);
-//
-// 	bool bDidSucceed = true;
-// 	bool bCallbackFired = false;
-//
-// 	auto Def = FGWBWorkGroupDefinition();
-// 	Def.Id = FName("TestGroup");
-// 	
-// 	UGWBManagerMock* Manager = FGWBManagerTestHelper::Create();
-// 	Manager->WorkGroups.Add(FGWBWorkGroup(Def));
-// 	auto Handle = Manager->ScheduleWork( Def.Id, { 0, 0, 0, false, false});
-// 	Handle.OnHandleWork([&bCallbackFired](const float DeltaTime)
-// 	{
-// 		UE_LOG(Log_GameplayWorkBalancer, Log, TEXT("FGWBManagerTests::RunTest -> received work callback"));
-// 		FPlatformProcess::Sleep(0.25);
-// 		bCallbackFired = true;
-// 		UE_LOG(Log_GameplayWorkBalancer, Log, TEXT("FGWBManagerTests::RunTest -> work complete"));
-// 	});
-// 	
-// 	bDidSucceed &= TestTrue("# of work units is 1", Manager->TEST_GetWorkUnitCount() == 1);
-// 	bDidSucceed &= TestTrue("callback of the work unit has NOT fired before manager did a cycle of work", !bCallbackFired);
-// 	
-// 	Manager->TEST_DoWork();
-//
-// 	bDidSucceed &= TestTrue("callback of the work unit fired after a cycle of work", bCallbackFired);
-// 	bDidSucceed &= TestTrue("# of work units is 0", Manager->TEST_GetWorkUnitCount() == 0);
-// 	
-// 	return bDidSucceed;
-// }
 
 BEGIN_DEFINE_SPEC(FGWBManagerTests, "GWBRuntime.GWBManager", EAutomationTestFlags::ProductFilter | EAutomationTestFlags_ApplicationContextMask)
 	// add any member vars here
@@ -65,6 +30,8 @@ void FGWBManagerTests::PrepareTests()
 		if (Manager->IsValidLowLevel()) Manager->ConditionalBeginDestroy();
 	});
 }
+
+PRAGMA_DISABLE_OPTIMIZATION
 void FGWBManagerTests::Define()
 {
 	
@@ -102,9 +69,24 @@ void FGWBManagerTests::Define()
 	Describe("DoWork() - Basics", [this]()
 	{
 		PrepareTests();
+
+		It("should perform work if budget is negative, since NEGATIVE VALUES are treated as disabled", [this]()
+		{
+			FScopedCVarOverrideFloat CvarFrameBudget(TEXT("gwb.frame.budget"), -1);
+			bool bCallbackFired = false;
+			auto Handle = Manager->ScheduleWork( WorkGroupID, { 0, 0, 0, false, false});
+			Handle.OnHandleWork([&bCallbackFired](const float DeltaTime)
+			{
+				bCallbackFired = true;
+			});
+			Manager->DoWork();
+			TestTrue("Callback should be fired since we did not a real budget", bCallbackFired);
+			TestTrue("# of scheduled work units is 0", Manager->TEST_GetWorkUnitCount() == 0);
+		});
+		
 		It("should NOT perform any units of work if there's no budget", [this]()
 		{
-			FScopedCVarOverrideFloat CvarFrameBudget(TEXT("gwb.frame.budget"), 0.f);
+			FScopedCVarOverrideFloat CvarFrameBudget(TEXT("gwb.frame.budget"), 0);
 			bool bCallbackFired = false;
 			auto Handle = Manager->ScheduleWork( WorkGroupID, { 0, 0, 0, false, false});
 			Handle.OnHandleWork([&bCallbackFired](const float DeltaTime)
@@ -149,6 +131,31 @@ void FGWBManagerTests::Define()
 			TestTrue("Callback 1 should have fired", bCallbackFired);
 			TestTrue("Callback 2 should NOT have fired", !bCallback2Fired);
 			TestTrue("# of scheduled work units is 1", Manager->TEST_GetWorkUnitCount() == 1);
+		});
+		
+		It("should clear work over two iterations if budget exhausted on first iteration", [this]()
+		{
+			FScopedCVarOverrideFloat CvarFrameBudget(TEXT("gwb.frame.budget"), 0.1f);
+			bool bCallbackFired = false;
+			bool bCallback2Fired = false;
+			Manager->ScheduleWork( WorkGroupID, { 0, 0, 0, false, false}).OnHandleWork([&bCallbackFired](const float DeltaTime)
+			{
+				FPlatformProcess::Sleep(0.1);
+				bCallbackFired = true;
+			});
+			Manager->ScheduleWork( WorkGroupID, { 0, 0, 0, false, false}).OnHandleWork([&bCallback2Fired](const float DeltaTime)
+			{
+				FPlatformProcess::Sleep(0.1);
+				bCallback2Fired = true;
+			});
+			Manager->DoWork();
+			TestTrue("Callback 1 should have fired", bCallbackFired);
+			TestTrue("Callback 2 should NOT have fired", !bCallback2Fired);
+			TestTrue("# of scheduled work units is 1", Manager->TEST_GetWorkUnitCount() == 1);
+			Manager->DoWork();
+			TestTrue("Callback 1 should have fired", bCallbackFired);
+			TestTrue("Callback 2 should have fired", bCallback2Fired);
+			TestTrue("# of scheduled work units is 0", Manager->TEST_GetWorkUnitCount() == 0);
 		});
 		
 		It("should perform work in order of priority", [this]()
@@ -259,11 +266,13 @@ void FGWBManagerTests::Define()
 				bCallbackFired = true;
 			});
 			Manager->AbortWorkUnit(Manager,Handle);
-			TestTrue("# of scheduled work units is 0", Manager->TEST_GetWorkUnitCount() == 0);
+			TestTrue("# of scheduled work units is 1", Manager->TEST_GetWorkUnitCount() == 1); // note that aborting a unit does NOT de-schedule it
 			Manager->DoWork();
-			TestFalse("Callback should NOT be fired", bCallbackFired);
+			TestTrue("# of scheduled work units is 0", Manager->TEST_GetWorkUnitCount() == 0);
+			TestFalse("Callback should NOT be fired", bCallbackFired == false);
 		});
 	});
 }
+PRAGMA_ENABLE_OPTIMIZATION
 
 #endif // WITH_DEV_AUTOMATION_TESTS
