@@ -4,6 +4,12 @@
 #include "Components/GWBTimeSlicer.h"
 
 #include "GWBSubsystem.h"
+#include "GWBRuntimeModule.h"
+
+UGWBTimeSlicer::UGWBTimeSlicer()
+{
+	LastResetTimestamp = FPlatformTime::Seconds();
+}
 
 void UGWBTimeSlicer::Init()
 {
@@ -20,7 +26,8 @@ void UGWBTimeSlicer::Reset()
 {
 	CycleWorkUnitsCompleted = 0;
 	CycleLastTimestamp = 0;
-	FrameBudgetExceededTimestamp = FPlatformTime::Seconds() + FrameTimeBudget;
+	LastResetTimestamp = FPlatformTime::Seconds();
+	UE_LOG(Log_GameplayWorkBalancer, VeryVerbose, TEXT("UGWBTimeSlicer::Reset -> Remaining Budget: %f)"), GetRemainingTimeInBudget());
 }
 
 void UGWBTimeSlicer::StartWork()
@@ -32,26 +39,35 @@ void UGWBTimeSlicer::EndWork()
 {
 	CycleWorkUnitsCompleted++;
 	RecordTelemetry(FPlatformTime::Seconds() - CycleLastTimestamp);
+	UE_LOG(Log_GameplayWorkBalancer, VeryVerbose, TEXT("UGWBTimeSlicer::EndWork -> Remaining Budget: %f)"), GetRemainingTimeInBudget());
 }
 
 bool UGWBTimeSlicer::HasBudgetBeenExceeded() const
 {
 	return HasWorkUnitCountBudgetBeenExceeded() || HasFrameBudgetBeenExceeded();
 }
-
+UE_DISABLE_OPTIMIZATION
 bool UGWBTimeSlicer::HasFrameBudgetBeenExceeded() const
 {
-	return FrameTimeBudget > 0 ? GetRemainingTimeInBudget() > 0 : false;
+	const auto RemainingTime = GetRemainingTimeInBudget();
+	const bool IsOutOfTime = RemainingTime <= DOUBLE_SMALL_NUMBER;
+	return FrameTimeBudget >= 0 ? IsOutOfTime : false;
 }
-
+UE_ENABLE_OPTIMIZATION
 bool UGWBTimeSlicer::HasWorkUnitCountBudgetBeenExceeded() const
 {
-	return WorkUnitCountBudget > 0 ? GetRemainingWorkUnitCountBudget() > 0 : false;
+	return WorkUnitCountBudget > 0 ? GetRemainingWorkUnitCountBudget() <= 0 : false;
 }
 
 float UGWBTimeSlicer::GetRemainingTimeInBudget() const
 {
-	return FrameBudgetExceededTimestamp - FPlatformTime::Seconds();
+	return GetFrameBudgetExceededTimestamp() - FPlatformTime::Seconds();
+}
+
+double UGWBTimeSlicer::GetFrameBudgetExceededTimestamp() const
+{
+	const auto Value = LastResetTimestamp + FrameTimeBudget;
+	return Value;
 }
 
 uint32 UGWBTimeSlicer::GetRemainingWorkUnitCountBudget() const

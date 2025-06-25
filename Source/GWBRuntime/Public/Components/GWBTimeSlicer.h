@@ -15,6 +15,8 @@ UCLASS()
 class GWBRUNTIME_API UGWBTimeSlicer : public UObject
 {
 	GENERATED_BODY()
+
+	UGWBTimeSlicer();
 	
 public:
 
@@ -36,6 +38,7 @@ public:
 	bool HasFrameBudgetBeenExceeded() const;
 	bool HasWorkUnitCountBudgetBeenExceeded() const;
 	float GetRemainingTimeInBudget() const;
+	double GetFrameBudgetExceededTimestamp() const;
 	uint32 GetRemainingWorkUnitCountBudget() const;
 	FORCEINLINE uint32 GetCycleWorkUnitsCompleted() const { return CycleWorkUnitsCompleted; };
 	FORCEINLINE double GetCycleLastTimestamp() const { return CycleLastTimestamp; };
@@ -55,13 +58,13 @@ private:
 
 	// <config>
 	double FrameTimeBudget; // this is a value in seconds
-	uint32 WorkUnitCountBudget; // how many units we're allowed to do
+	int32 WorkUnitCountBudget; // how many units we're allowed to do (-1 means infinite)
 	// </config>
 
 	// <state>
 	uint32 CycleWorkUnitsCompleted = 0;
 	double CycleLastTimestamp; // this is a specific point in platform time
-	double FrameBudgetExceededTimestamp; // this is a specific point in platform time
+	double LastResetTimestamp; // specific point in time the slicer has been reset to 0 so we have full budget
 	// </state>
 
 	// <telemetry>
