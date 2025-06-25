@@ -43,8 +43,13 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "GameWorkBalancer", meta=(GameplayTagFilter="GameWork"))
 	static FGWBWorkUnitHandle ScheduleWork(const UObject* WorldContextObject, FName WorkGroupId, const FGWBWorkOptions& WorkOptions);
 	
+	/**
+	 * Aborting a work unit is, unfortunately, expensive as it uses a handle indexed by Id and loops through
+	 * all the groups and their work units to find the one to abort.
+	 * ...Should be improved in the future.
+	 */
 	UFUNCTION(BlueprintCallable, Category = "GameWorkBalancer", meta=(GameplayTagFilter="GameWork"))
-	static void AbortWorkUnit(const UObject* WorldContextObject, FGWBWorkUnitHandle WorkUnit);
+	static void AbortWorkUnit(const UObject* WorldContextObject, FGWBWorkUnitHandle WorkUnitHandle);
 
 	/** Delegate fired just before doing work for a frame, to allow external systems to just-in-time schedule work. */
 	UPROPERTY()

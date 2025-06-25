@@ -17,6 +17,7 @@ struct GWBRUNTIME_API FGWBWorkUnitHandle
 	FGWBWorkUnitHandle(FGWBWorkUnit& WorkUnit): bShouldAutoFire(false)
 	{
 		WorkUnitCallbackHandle = WorkUnit.CallbackHandle;
+		Id = WorkUnit.GetId();
 	}
 
 	
@@ -29,7 +30,9 @@ struct GWBRUNTIME_API FGWBWorkUnitHandle
 		Handle.bShouldAutoFire = true;
 		return Handle;
 	}
+	FORCEINLINE int32 GetId() const { return Id; }
 protected:
+	int32 Id;
 	bool bShouldAutoFire;
 	TSharedPtr<FGWBWorkUnitCallback> WorkUnitCallbackHandle;
 };

@@ -50,9 +50,22 @@ FGWBWorkUnitHandle UGWBManager::ScheduleWork(const UObject* WorldContextObject, 
 	UGWBManager* GlobalManager = Subsystem->GetManager();
 	return GlobalManager->ScheduleWork(WorkGroupId, WorkOptions);	
 }
-void UGWBManager::AbortWorkUnit(const UObject* WorldContextObject, FGWBWorkUnitHandle WorkUnit)
+void UGWBManager::AbortWorkUnit(const UObject* WorldContextObject, FGWBWorkUnitHandle WorkUnitHandle)
+{
+	const UGWBSubsystem* Subsystem = GEngine->GetEngineSubsystem<UGWBSubsystem>();
+	UGWBManager* GlobalManager = Subsystem->GetManager();
+	for (auto ItCategory = GlobalManager->WorkGroups.CreateIterator(); ItCategory; ++ItCategory)
+	{
+		for (auto& WorkUnit : ItCategory->WorkUnitsQueue)
+		{
+			if (WorkUnitHandle.GetId() == WorkUnit.GetId())
 {
 	WorkUnit.GetAbortCallback().ExecuteIfBound();
+				WorkUnit.MarkAborted();
+				return;
+			}
+		}
+	}
 }
 FGWBWorkUnitHandle UGWBManager::ScheduleWork(const FName& WorkGroupId, const FGWBWorkOptions& WorkOptions)
 {

@@ -31,6 +31,7 @@ struct GWBRUNTIME_API FGWBWorkUnit
 		  , bIsAborted(false)
 	{
 		CallbackHandle = MakeShared<FGWBWorkUnitCallback>();
+		Id = FMath::Rand32();
 	}
 	FGWBWorkUnit(const FGWBWorkOptions& InOptions, double InTimeScheduled)
 		: Options(InOptions)
@@ -39,6 +40,7 @@ struct GWBRUNTIME_API FGWBWorkUnit
 		, bIsAborted(false)
 	{
 		CallbackHandle = MakeShared<FGWBWorkUnitCallback>();
+		Id = FMath::Rand32();
 	}
 
 	/** custom options used to schedule this unit of work. */
@@ -52,7 +54,7 @@ struct GWBRUNTIME_API FGWBWorkUnit
 	/** callback when work should be done with delta time since scheduled. */
 	TSharedPtr<FGWBWorkUnitCallback> CallbackHandle;
 	
-	FORCEINLINE int32 GetId() const { return 0; }
+	FORCEINLINE int32 GetId() const { return Id; }
 	FORCEINLINE bool HasWork() const { return !bHasCompletedWork || bIsAborted; }
 	FORCEINLINE bool HasCompletedWork() const { return bHasCompletedWork; }
 	FORCEINLINE void MarkCompleted() const { bHasCompletedWork = true; }
@@ -68,6 +70,7 @@ struct GWBRUNTIME_API FGWBWorkUnit
 	int32 PriorityOffset = 0;
 
 protected:
+	int32 Id;
     mutable bool bHasCompletedWork;
     mutable bool bIsAborted;
 };
