@@ -2,10 +2,10 @@
 #include "DataTypes/GWBWorkUnitHandle.h"
 #include "GWBRuntimeModule.h"
 #include "Misc/AutomationTest.h"
-#include "Tests/TestMocks.h"
 #include "GWBManager.h"
 #include "Components/GWBTimeSlicer.h"
 #include "Extensions/Modifiers.h"
+#include "Tests/RuntimeTestMocks.h"
 #include "Tests/ScopedCvarOverrides.h"
 
 #if WITH_DEV_AUTOMATION_TESTS
@@ -39,7 +39,7 @@ void FGWBExtensionsTests::Define()
 		PrepareTests();
 		It("should NOT modify budget if escalation count is NOT exceeded", [this]()
 		{
-			FScopedCVarOverrideFloat CvarFrameBudget(TEXT("gwb.frame.budget"), 0.1f);
+			FScopedCVarOverrideFloat CvarFrameBudget(TEXT("gwb.budget.frame"), 0.1f);
 			const auto Slicer = UGWBTimeSlicer::Get(nullptr, FName("GameplayWorkBalancer"));
 			Manager->ModifierManager.AddBudgetModifier(FFrameBudgetEscalationModifier());
 			Manager->ScheduleWork( WorkGroupID, { 0, 0, 0, false, false});
@@ -51,7 +51,7 @@ void FGWBExtensionsTests::Define()
 		});
 		It("should modify budget if escalation count is exceeded", [this]()
 		{
-			FScopedCVarOverrideFloat CvarFrameBudget(TEXT("gwb.frame.budget"), 0.1f);
+			FScopedCVarOverrideFloat CvarFrameBudget(TEXT("gwb.budget.frame"), 0.1f);
 			FScopedCVarOverrideFloat CvarEscalationScalar(TEXT("gwb.escalation.scalar"), 1.0f);
 			FScopedCVarOverrideFloat CvarEscalationCount(TEXT("gwb.escalation.count"), 3);
 			const auto Slicer = UGWBTimeSlicer::Get(nullptr, FName("GameplayWorkBalancer"));
@@ -65,7 +65,7 @@ void FGWBExtensionsTests::Define()
 		});
 		It("should decay escalation over time", [this]()
 		{
-			FScopedCVarOverrideFloat CvarFrameBudget(TEXT("gwb.frame.budget"), 0.1f);
+			FScopedCVarOverrideFloat CvarFrameBudget(TEXT("gwb.budget.frame"), 0.1f);
 			FScopedCVarOverrideFloat CvarEscalationScalar(TEXT("gwb.escalation.scalar"), 1.0f);
 			FScopedCVarOverrideFloat CvarEscalationCount(TEXT("gwb.escalation.count"), 3);
 			FScopedCVarOverrideFloat CvarEscalationDecay(TEXT("gwb.escalation.decay"), 0.5);

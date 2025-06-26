@@ -12,7 +12,7 @@
  * @see `FGWBTimeSlicedLoopScope`
  */
 USTRUCT()
-struct GWBRUNTIME_API FGWBTimeSliceScopedHandle
+struct GWBTIMESLICER_API FGWBTimeSliceScopedHandle
 {
 	GENERATED_BODY()
 	

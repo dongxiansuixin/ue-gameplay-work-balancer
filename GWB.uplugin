@@ -19,6 +19,11 @@
 			"Name": "GWBRuntime",
 			"Type": "Runtime",
 			"LoadingPhase": "Default"
+		},
+		{
+			"Name": "GWBTimeSlicer",
+			"Type": "Runtime",
+			"LoadingPhase": "Default"
 		}
 	]
 }

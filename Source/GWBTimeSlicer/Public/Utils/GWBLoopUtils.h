@@ -20,7 +20,7 @@
  * Users can call Break() from within their work lambda/delegate to exit the loop immediately.
  */
 USTRUCT(BlueprintType)
-struct GWBRUNTIME_API FBudgetedLoopHandle
+struct GWBTIMESLICER_API FBudgetedLoopHandle
 {
     GENERATED_BODY()
 
@@ -220,7 +220,7 @@ namespace GWBLoopUtils
  * Provides Blueprint-accessible versions of budgeted loop functionality
  */
 UCLASS()
-class GWBRUNTIME_API UGWBLoopUtilsBlueprintLibrary : public UBlueprintFunctionLibrary
+class GWBTIMESLICER_API UGWBLoopUtilsBlueprintLibrary : public UBlueprintFunctionLibrary
 {
     GENERATED_BODY()
 

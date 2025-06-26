@@ -1,64 +1,14 @@
 ﻿#include "Utils/GWBLoopUtils.h"
 #include "Components/GWBTimeSlicer.h"
-#include "GWBSubsystem.h"
 #include "Misc/AutomationTest.h"
 #include "Tests/ScopedCvarOverrides.h"
-#include "Tests/TestMocks.h"
-#include "Engine/World.h"
+#include "Tests/SlicerTestMocks.h"
 
 #if WITH_DEV_AUTOMATION_TESTS
 
-// Implementation of UGWBLoopUtilsTestHelper methods
-void UGWBLoopUtilsTestHelper::ProcessWorkUnit(FBudgetedLoopHandle& LoopHandle)
-{
-	ProcessedCount++;
-	
-	// Execute custom callback if provided
-	if (CustomCallback)
-	{
-		CustomCallback(LoopHandle);
-	}
-	
-	// Check for break condition
-	if (bShouldBreak || (BreakAtCount > 0 && ProcessedCount >= BreakAtCount))
-	{
-		LoopHandle.Break();
-	}
-	
-	// Add sleep if specified
-	if (SleepDuration > 0.0f)
-	{
-		FPlatformProcess::Sleep(SleepDuration);
-	}
-}
-
-void UGWBLoopUtilsTestHelper::ResetCounter()
-{
-	ProcessedCount = 0;
-	bShouldBreak = false;
-	BreakAtCount = -1;
-	SleepDuration = 0.0f;
-	CustomCallback = nullptr;
-}
-
-void UGWBLoopUtilsTestHelper::SetBreakAtCount(int32 Count)
-{
-	BreakAtCount = Count;
-}
-
-void UGWBLoopUtilsTestHelper::SetSleepDuration(float Duration)
-{
-	SleepDuration = Duration;
-}
-
-void UGWBLoopUtilsTestHelper::SetCustomCallback(TFunction<void(FBudgetedLoopHandle&)> Callback)
-{
-	CustomCallback = Callback;
-}
-
-BEGIN_DEFINE_SPEC(FGWBLoopUtilsTests, "GWBRuntime.GWBLoopUtils", EAutomationTestFlags::ProductFilter | EAutomationTestFlags_ApplicationContextMask)
+BEGIN_DEFINE_SPEC(FGWBLoopUtilsTests, "GWBTimeSlicer.GWBLoopUtils", EAutomationTestFlags::ProductFilter | EAutomationTestFlags_ApplicationContextMask)
 	// Test data and helper objects
-	UGWBManagerMock* MockManager;
+	UGWBTestWorldContext* WorldContext;
 	UGWBLoopUtilsTestHelper* TestHelper;
 	TArray<int32> TestArray;
 	int32 ProcessedCount;
@@ -93,14 +43,14 @@ void FGWBLoopUtilsTests::ResetCounters()
 
 TWeakObjectPtr<UGWBTimeSlicer> FGWBLoopUtilsTests::GetTimeSlicerById(const FName& Id)
 {
-	return UGWBTimeSlicer::Get(MockManager, Id);
+	return UGWBTimeSlicer::Get(WorldContext, Id);
 }
 
 void FGWBLoopUtilsTests::Define()
 {
 	BeforeEach([this]()
 	{
-		MockManager = FGWBManagerTestHelper::Create();
+		WorldContext = NewObject<UGWBTestWorldContext>();
 		TestHelper = NewObject<UGWBLoopUtilsTestHelper>();
 		SetupTestArray();
 		ResetCounters();
@@ -108,9 +58,9 @@ void FGWBLoopUtilsTests::Define()
 
 	AfterEach([this]()
 	{
-		if (MockManager && MockManager->IsValidLowLevel()) 
+		if (WorldContext && WorldContext->IsValidLowLevel()) 
 		{
-			MockManager->ConditionalBeginDestroy();
+			WorldContext->ConditionalBeginDestroy();
 		}
 		if (TestHelper && TestHelper->IsValidLowLevel())
 		{
@@ -122,9 +72,9 @@ void FGWBLoopUtilsTests::Define()
 	{
 		It("should process all elements when budget is sufficient", [this]()
 		{
-			FScopedCVarOverrideFloat FrameBudget(TEXT("gwb.frame.budget"), 1.0f); // Large budget
+			FScopedCVarOverrideFloat FrameBudget(TEXT("gwb.budget.frame"), 1.0f); // Large budget
 			
-			BUDGETED_FOR_LOOP(MockManager, 1.0f, 100, TestArray, [&](FBudgetedLoopHandle& Handle) {
+			BUDGETED_FOR_LOOP(WorldContext, 1.0f, 100, TestArray, [&](FBudgetedLoopHandle& Handle) {
 				ProcessedCount++;
 			});
 			
@@ -133,12 +83,12 @@ void FGWBLoopUtilsTests::Define()
 
 		It("should respect time budget and process partial elements", [this]()
 		{
-			FScopedCVarOverrideFloat FrameBudget(TEXT("gwb.frame.budget"), 0.001f); // Very small budget
+			FScopedCVarOverrideFloat FrameBudget(TEXT("gwb.budget.frame"), 0.001f); // Very small budget
 			
 			// Set up a larger array to ensure we hit budget limits
 			SetupTestArray(100);
 			
-			BUDGETED_FOR_LOOP(MockManager, 0.001f, 100, TestArray, [&](FBudgetedLoopHandle& Handle) {
+			BUDGETED_FOR_LOOP(WorldContext, 0.001f, 100, TestArray, [&](FBudgetedLoopHandle& Handle) {
 				ProcessedCount++;
 				// Add small delay to consume time budget
 				FPlatformProcess::Sleep(0.0005f);
@@ -152,7 +102,7 @@ void FGWBLoopUtilsTests::Define()
 		{
 			const int32 MaxWorkCount = 5;
 			
-			BUDGETED_FOR_LOOP(MockManager, 1.0f, MaxWorkCount, TestArray, [&](FBudgetedLoopHandle& Handle) {
+			BUDGETED_FOR_LOOP(WorldContext, 1.0f, MaxWorkCount, TestArray, [&](FBudgetedLoopHandle& Handle) {
 				ProcessedCount++;
 			});
 			
@@ -163,7 +113,7 @@ void FGWBLoopUtilsTests::Define()
 		{
 			TestArray.Empty();
 			
-			BUDGETED_FOR_LOOP(MockManager, 1.0f, 10, TestArray, [&](FBudgetedLoopHandle& Handle) {
+			BUDGETED_FOR_LOOP(WorldContext, 1.0f, 10, TestArray, [&](FBudgetedLoopHandle& Handle) {
 				ProcessedCount++;
 			});
 			
@@ -174,7 +124,7 @@ void FGWBLoopUtilsTests::Define()
 		{
 			const int32 BreakAtIndex = 3;
 			
-			BUDGETED_FOR_LOOP(MockManager, 1.0f, 100, TestArray, [&](FBudgetedLoopHandle& Handle) {
+			BUDGETED_FOR_LOOP(WorldContext, 1.0f, 100, TestArray, [&](FBudgetedLoopHandle& Handle) {
 				ProcessedCount++;
 				if (ProcessedCount >= BreakAtIndex)
 				{
@@ -190,7 +140,7 @@ void FGWBLoopUtilsTests::Define()
 			const int32 BreakAtIndex = 2;
 			const int32 MaxWorkCount = 10; // Higher than break point
 			
-			BUDGETED_FOR_LOOP(MockManager, 1.0f, MaxWorkCount, TestArray, [&](FBudgetedLoopHandle& Handle) {
+			BUDGETED_FOR_LOOP(WorldContext, 1.0f, MaxWorkCount, TestArray, [&](FBudgetedLoopHandle& Handle) {
 				ProcessedCount++;
 				if (ProcessedCount >= BreakAtIndex)
 				{
@@ -204,12 +154,12 @@ void FGWBLoopUtilsTests::Define()
 		It("should generate unique time slicer IDs for different call sites", [this]()
 		{
 			// First call site
-			BUDGETED_FOR_LOOP(MockManager, 1.0f, 1, TestArray, [&](FBudgetedLoopHandle& Handle) {
+			BUDGETED_FOR_LOOP(WorldContext, 1.0f, 1, TestArray, [&](FBudgetedLoopHandle& Handle) {
 				ProcessedCount++;
 			});
 			
 			// Second call site  
-			BUDGETED_FOR_LOOP(MockManager, 1.0f, 1, TestArray, [&](FBudgetedLoopHandle& Handle) {
+			BUDGETED_FOR_LOOP(WorldContext, 1.0f, 1, TestArray, [&](FBudgetedLoopHandle& Handle) {
 				ProcessedCount++;
 			});
 			
@@ -222,13 +172,13 @@ void FGWBLoopUtilsTests::Define()
 	{
 		It("should process all elements when budget is sufficient", [this]()
 		{
-			FScopedCVarOverrideFloat FrameBudget(TEXT("gwb.frame.budget"), 1.0f);
+			FScopedCVarOverrideFloat FrameBudget(TEXT("gwb.budget.frame"), 1.0f);
 			
 			FGWBBudgetedLoopWorkDelegate WorkDelegate;
 			WorkDelegate.BindUFunction(TestHelper, FName("ProcessWorkUnit"));
 			
 			UGWBLoopUtilsBlueprintLibrary::BudgetedForLoopBlueprint(
-				MockManager, 1.0f, 100, TestArray.Num(), WorkDelegate, TEXT("TestLoop1")
+				WorldContext, 1.0f, 100, TestArray.Num(), WorkDelegate, TEXT("TestLoop1")
 			);
 			
 			TestEqual("All elements should be processed", TestHelper->ProcessedCount, TestArray.Num());
@@ -236,7 +186,7 @@ void FGWBLoopUtilsTests::Define()
 
 		It("should respect time budget constraints", [this]()
 		{
-			FScopedCVarOverrideFloat FrameBudget(TEXT("gwb.frame.budget"), 0.001f);
+			FScopedCVarOverrideFloat FrameBudget(TEXT("gwb.budget.frame"), 0.001f);
 			
 			TestHelper->SetSleepDuration(0.0005f);
 			
@@ -245,7 +195,7 @@ void FGWBLoopUtilsTests::Define()
 			
 			SetupTestArray(50);
 			UGWBLoopUtilsBlueprintLibrary::BudgetedForLoopBlueprint(
-				MockManager, 0.001f, 100, TestArray.Num(), WorkDelegate, TEXT("TestLoop2")
+				WorldContext, 0.001f, 100, TestArray.Num(), WorkDelegate, TEXT("TestLoop2")
 			);
 			
 			TestTrue("Should process fewer elements due to time budget", TestHelper->ProcessedCount < TestArray.Num());
@@ -259,7 +209,7 @@ void FGWBLoopUtilsTests::Define()
 			WorkDelegate.BindUFunction(TestHelper, FName("ProcessWorkUnit"));
 			
 			UGWBLoopUtilsBlueprintLibrary::BudgetedForLoopBlueprint(
-				MockManager, 1.0f, MaxWorkCount, TestArray.Num(), WorkDelegate, TEXT("TestLoop3")
+				WorldContext, 1.0f, MaxWorkCount, TestArray.Num(), WorkDelegate, TEXT("TestLoop3")
 			);
 			
 			TestEqual("Should process exactly MaxWorkCount elements", TestHelper->ProcessedCount, MaxWorkCount);
@@ -275,7 +225,7 @@ void FGWBLoopUtilsTests::Define()
 			WorkDelegate.BindUFunction(TestHelper, FName("ProcessWorkUnit"));
 			
 			UGWBLoopUtilsBlueprintLibrary::BudgetedForLoopBlueprint(
-				MockManager, 1.0f, 100, TestArray.Num(), WorkDelegate, TEXT("TestLoop4")
+				WorldContext, 1.0f, 100, TestArray.Num(), WorkDelegate, TEXT("TestLoop4")
 			);
 			
 			TestEqual("Should break at specified index", TestHelper->ProcessedCount, BreakAtIndex);
@@ -287,7 +237,7 @@ void FGWBLoopUtilsTests::Define()
 			WorkDelegate.BindUFunction(TestHelper, FName("ProcessWorkUnit"));
 			
 			UGWBLoopUtilsBlueprintLibrary::BudgetedForLoopBlueprint(
-				MockManager, 1.0f, 10, 0, WorkDelegate, TEXT("TestLoop5")
+				WorldContext, 1.0f, 10, 0, WorkDelegate, TEXT("TestLoop5")
 			);
 			
 			TestEqual("Should process zero elements for zero array count", TestHelper->ProcessedCount, 0);
@@ -299,7 +249,7 @@ void FGWBLoopUtilsTests::Define()
 			
 			// Should not crash with unbound delegate
 			UGWBLoopUtilsBlueprintLibrary::BudgetedForLoopBlueprint(
-				MockManager, 1.0f, 10, TestArray.Num(), UnboundDelegate, TEXT("TestLoop6")
+				WorldContext, 1.0f, 10, TestArray.Num(), UnboundDelegate, TEXT("TestLoop6")
 			);
 			
 			TestEqual("Should not process anything with unbound delegate", TestHelper->ProcessedCount, 0);
@@ -310,7 +260,7 @@ void FGWBLoopUtilsTests::Define()
 	{
 		It("should maintain state across multiple calls with break capability", [this]()
 		{
-			FScopedCVarOverrideFloat FrameBudget(TEXT("gwb.frame.budget"), 0.001f);
+			FScopedCVarOverrideFloat FrameBudget(TEXT("gwb.budget.frame"), 0.001f);
 			const FString CallSiteId = TEXT("CrossTickBreakTest");
 			
 			TestHelper->SetBreakAtCount(5);
@@ -324,7 +274,7 @@ void FGWBLoopUtilsTests::Define()
 			
 			// First call - should break at 5 elements
 			UGWBLoopUtilsBlueprintLibrary::BudgetedForLoopBlueprint(
-				MockManager, 0.001f, 20, TestArray.Num(), 
+				WorldContext, 0.001f, 20, TestArray.Num(), 
 				WorkDelegate, CallSiteId
 			);
 			
@@ -338,7 +288,7 @@ void FGWBLoopUtilsTests::Define()
 		{
 			bool bBreakCalled = false;
 			
-			BUDGETED_FOR_LOOP(MockManager, 1.0f, 100, TestArray, [&](FBudgetedLoopHandle& Handle) {
+			BUDGETED_FOR_LOOP(WorldContext, 1.0f, 100, TestArray, [&](FBudgetedLoopHandle& Handle) {
 				ProcessedCount++;
 				
 				if (ProcessedCount == 1) // Break on first iteration
@@ -356,7 +306,7 @@ void FGWBLoopUtilsTests::Define()
 		{
 			bool bConditionMet = false;
 			
-			BUDGETED_FOR_LOOP(MockManager, 1.0f, 100, TestArray, [&](FBudgetedLoopHandle& Handle) {
+			BUDGETED_FOR_LOOP(WorldContext, 1.0f, 100, TestArray, [&](FBudgetedLoopHandle& Handle) {
 				ProcessedCount++;
 				
 				// Complex condition for breaking

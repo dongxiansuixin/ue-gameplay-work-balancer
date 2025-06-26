@@ -19,7 +19,7 @@ DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FGWBOnBeforeDoWorkDelegate, float, D
  * Manages the work loop, tracks budgets, and fires off the work delegates when work needs to be done.
  *
  * To use the manager to schedule some work:
- * - Make sure your CVars are configured. The most important ones are `gwb.frame.budget` and `gwb.enabled`.
+ * - Make sure your CVars are configured. The most important ones are `gwb.budget.frame` and `gwb.enabled`.
  * - Grab the singleton you can grab from `UGWBSubsystem::GetManager`
  * - Use `ScheduleWork` to schedule a work unit. It returns a handle that has a delegate you can access via `Handle.GetWorkCallback()`
  * - Bind a function to the delegate and do your work in that function. Your bound function will be called if there is room in the budget.

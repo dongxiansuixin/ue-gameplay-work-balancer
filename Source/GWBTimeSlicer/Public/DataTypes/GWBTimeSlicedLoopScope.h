@@ -51,7 +51,7 @@
  * ```
  */
 USTRUCT()
-struct GWBRUNTIME_API FGWBTimeSlicedLoopScope
+struct GWBTIMESLICER_API FGWBTimeSlicedLoopScope
 {
 	GENERATED_BODY()
 	

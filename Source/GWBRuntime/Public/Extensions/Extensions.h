@@ -69,6 +69,7 @@ template<typename ImplType, typename ValueType>
 class ValueModifierExtension : public ImplType {
 public:
   void ModifyValue(ValueType& Value) { this->ModifyValueImpl(Value); }
+  void OnWorkScheduled(const uint32& TotalWorkCount) { this->OnWorkScheduledImpl(TotalWorkCount); }
   void OnWorkComplete(const uint32& RemainingWorkCount) { this->OnWorkCompleteImpl(RemainingWorkCount); }
   void OnWorkDeferred(const uint32& RemainingWorkCount) { this->OnWorkDeferredImpl(RemainingWorkCount); }
   void OnBudgetExceeded(EBudgetExceededType Type, const uint32& RemainingWorkCount) { this->OnBudgetExceededImpl(Type, RemainingWorkCount); }

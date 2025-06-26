@@ -5,11 +5,10 @@
 #include "CoreMinimal.h"
 #include "GWBManager.h"
 #include "DataTypes/GWBWorkUnitHandle.h"
-#include "Utils/GWBLoopUtils.h"
 
 DECLARE_LOG_CATEGORY_EXTERN(LogGWBTests, Log, All);
 
-#include "TestMocks.generated.h"
+#include "RuntimeTestMocks.generated.h"
 
 #pragma region Test Helpers
 
@@ -80,29 +79,6 @@ struct FGWBManagerTestHelper
 	// 	Callback.AddDynamic(Wrapper, &ULambdaWrapper::Dispatch);
 	// 	return Callback;
 	// }
-};
-
-/**
- * Test helper object for Blueprint delegate binding in loop utils tests
- */
-UCLASS()
-class GWBRUNTIME_API UGWBLoopUtilsTestHelper : public UObject
-{
-	GENERATED_BODY()
-public:
-	int32 ProcessedCount = 0;
-	bool bShouldBreak = false;
-	int32 BreakAtCount = -1;
-	float SleepDuration = 0.0f;
-	TFunction<void(FBudgetedLoopHandle&)> CustomCallback;
-	
-	UFUNCTION()
-	void ProcessWorkUnit(FBudgetedLoopHandle& LoopHandle);
-	
-	void ResetCounter();
-	void SetBreakAtCount(int32 Count);
-	void SetSleepDuration(float Duration);
-	void SetCustomCallback(TFunction<void(FBudgetedLoopHandle&)> Callback);
 };
 
 #pragma endregion Test Helpers

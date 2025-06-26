@@ -3,7 +3,6 @@
 
 #include "GWBSubsystem.h"
 #include "GWBManager.h"
-#include "Components/GWBTimeSlicer.h"
 
 void UGWBSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 {
@@ -19,16 +18,5 @@ void UGWBSubsystem::Deinitialize()
 UGWBManager* UGWBSubsystem::GetManager() const
 {
 	return Manager;
-}
-
-UGWBTimeSlicer* UGWBSubsystem::GetTimeSlicer(const FName& Id)
-{
-	if (!TimeSlicers.Contains(Id))
-	{
-		TimeSlicers.Add(Id, NewObject<UGWBTimeSlicer>());
-		TimeSlicers[Id]->Init();
-	}
-
-	return TimeSlicers[Id];
 }
 

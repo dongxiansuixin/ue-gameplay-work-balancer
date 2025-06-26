@@ -12,7 +12,7 @@
  * Check the example in FGWBTimeSlicedLoopScope.h to learn the basic approach.
  */
 UCLASS()
-class GWBRUNTIME_API UGWBTimeSlicer : public UObject
+class GWBTIMESLICER_API UGWBTimeSlicer : public UObject
 {
 	GENERATED_BODY()
 

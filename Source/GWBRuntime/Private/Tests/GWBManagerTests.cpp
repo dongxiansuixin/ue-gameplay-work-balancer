@@ -2,8 +2,8 @@
 #include "DataTypes/GWBWorkUnitHandle.h"
 #include "GWBRuntimeModule.h"
 #include "Misc/AutomationTest.h"
-#include "Tests/TestMocks.h"
 #include "GWBManager.h"
+#include "Tests/RuntimeTestMocks.h"
 #include "Tests/ScopedCvarOverrides.h"
 
 #if WITH_DEV_AUTOMATION_TESTS
@@ -72,7 +72,7 @@ void FGWBManagerTests::Define()
 
 		It("should perform work if budget is negative, since NEGATIVE VALUES are treated as disabled", [this]()
 		{
-			FScopedCVarOverrideFloat CvarFrameBudget(TEXT("gwb.frame.budget"), -1);
+			FScopedCVarOverrideFloat CvarFrameBudget(TEXT("gwb.budget.frame"), -1);
 			bool bCallbackFired = false;
 			auto Handle = Manager->ScheduleWork( WorkGroupID, { 0, 0, 0, false, false});
 			Handle.OnHandleWork([&bCallbackFired](const float DeltaTime)
@@ -86,7 +86,7 @@ void FGWBManagerTests::Define()
 		
 		It("should NOT perform any units of work if there's no budget", [this]()
 		{
-			FScopedCVarOverrideFloat CvarFrameBudget(TEXT("gwb.frame.budget"), 0);
+			FScopedCVarOverrideFloat CvarFrameBudget(TEXT("gwb.budget.frame"), 0);
 			bool bCallbackFired = false;
 			auto Handle = Manager->ScheduleWork( WorkGroupID, { 0, 0, 0, false, false});
 			Handle.OnHandleWork([&bCallbackFired](const float DeltaTime)
@@ -100,7 +100,7 @@ void FGWBManagerTests::Define()
 		
 		It("should perform a unit of work if there's budget", [this]()
 		{
-			FScopedCVarOverrideFloat CvarFrameBudget(TEXT("gwb.frame.budget"), 0.1f);
+			FScopedCVarOverrideFloat CvarFrameBudget(TEXT("gwb.budget.frame"), 0.1f);
 			bool bCallbackFired = false;
 			auto Handle = Manager->ScheduleWork( WorkGroupID, { 0, 0, 0, false, false});
 			Handle.OnHandleWork([&bCallbackFired](const float DeltaTime)
@@ -114,7 +114,7 @@ void FGWBManagerTests::Define()
 		
 		It("should NOT perform a unit of work after budget is exhausted", [this]()
 		{
-			FScopedCVarOverrideFloat CvarFrameBudget(TEXT("gwb.frame.budget"), 0.1f);
+			FScopedCVarOverrideFloat CvarFrameBudget(TEXT("gwb.budget.frame"), 0.1f);
 			bool bCallbackFired = false;
 			bool bCallback2Fired = false;
 			Manager->ScheduleWork( WorkGroupID, { 0, 0, 0, false, false}).OnHandleWork([&bCallbackFired](const float DeltaTime)
@@ -135,7 +135,7 @@ void FGWBManagerTests::Define()
 		
 		It("should clear work over two iterations if budget exhausted on first iteration", [this]()
 		{
-			FScopedCVarOverrideFloat CvarFrameBudget(TEXT("gwb.frame.budget"), 0.1f);
+			FScopedCVarOverrideFloat CvarFrameBudget(TEXT("gwb.budget.frame"), 0.1f);
 			bool bCallbackFired = false;
 			bool bCallback2Fired = false;
 			Manager->ScheduleWork( WorkGroupID, { 0, 0, 0, false, false}).OnHandleWork([&bCallbackFired](const float DeltaTime)
@@ -160,7 +160,7 @@ void FGWBManagerTests::Define()
 		
 		It("should perform work in order of priority", [this]()
 		{
-			FScopedCVarOverrideFloat CvarFrameBudget(TEXT("gwb.frame.budget"), 0.1f);
+			FScopedCVarOverrideFloat CvarFrameBudget(TEXT("gwb.budget.frame"), 0.1f);
 			bool bCallbackLastFired = false;
 			Manager->ScheduleWork( WorkGroupID, { 1, 0, 0, false, false}).OnHandleWork([&bCallbackLastFired](const float DeltaTime)
 			{
@@ -212,7 +212,7 @@ void FGWBManagerTests::Define()
 		{
 			const FName WorkGroupA = FName("WorkGroupA");
 			const FName WorkGroupB = FName("WorkGroupB");
-			FScopedCVarOverrideFloat CvarFrameBudget(TEXT("gwb.frame.budget"), 0.5f);
+			FScopedCVarOverrideFloat CvarFrameBudget(TEXT("gwb.budget.frame"), 0.5f);
 			Manager->ScheduleWork( WorkGroupA, FGWBWorkOptions::EmptyOptions).OnHandleWork([](const float DeltaTime){ FPlatformProcess::Sleep(0.1); });
 			Manager->ScheduleWork( WorkGroupA, FGWBWorkOptions::EmptyOptions).OnHandleWork([](const float DeltaTime){ FPlatformProcess::Sleep(0.1); });
 			Manager->ScheduleWork( WorkGroupA, FGWBWorkOptions::EmptyOptions).OnHandleWork([](const float DeltaTime){ FPlatformProcess::Sleep(0.1); });
@@ -234,7 +234,7 @@ void FGWBManagerTests::Define()
 		{
 			const FName WorkGroupA = FName("WorkGroupA");
 			const FName WorkGroupB = FName("WorkGroupB");
-			FScopedCVarOverrideFloat CvarFrameBudget(TEXT("gwb.frame.budget"), 0.5f);
+			FScopedCVarOverrideFloat CvarFrameBudget(TEXT("gwb.budget.frame"), 0.5f);
 			Manager->ScheduleWork( WorkGroupA, FGWBWorkOptions::EmptyOptions).OnHandleWork([](const float DeltaTime){ FPlatformProcess::Sleep(0.f); });
 			Manager->ScheduleWork( WorkGroupA, FGWBWorkOptions::EmptyOptions).OnHandleWork([](const float DeltaTime){ FPlatformProcess::Sleep(0.f); });
 			Manager->ScheduleWork( WorkGroupA, FGWBWorkOptions::EmptyOptions).OnHandleWork([](const float DeltaTime){ FPlatformProcess::Sleep(0.f); });

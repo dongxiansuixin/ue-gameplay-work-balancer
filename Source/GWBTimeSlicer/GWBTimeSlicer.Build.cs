@@ -2,9 +2,9 @@
 
 using UnrealBuildTool;
 
-public class GWBRuntime : ModuleRules
+public class GWBTimeSlicer : ModuleRules
 {
-	public GWBRuntime(ReadOnlyTargetRules Target) : base(Target)
+	public GWBTimeSlicer(ReadOnlyTargetRules Target) : base(Target)
 	{
 		PCHUsage = ModuleRules.PCHUsageMode.UseExplicitOrSharedPCHs;
 		
@@ -29,7 +29,6 @@ public class GWBRuntime : ModuleRules
 			new string[]
 			{
 				"Core",
-				"GWBTimeSlicer",
 				// ... add other public dependencies that you statically link with here ...
 			}
 			);
