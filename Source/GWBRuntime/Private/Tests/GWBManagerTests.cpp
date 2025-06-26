@@ -31,7 +31,7 @@ void FGWBManagerTests::PrepareTests()
 	});
 }
 
-PRAGMA_DISABLE_OPTIMIZATION
+UE_DISABLE_OPTIMIZATION
 void FGWBManagerTests::Define()
 {
 	
@@ -273,6 +273,6 @@ void FGWBManagerTests::Define()
 		});
 	});
 }
-PRAGMA_ENABLE_OPTIMIZATION
+UE_ENABLE_OPTIMIZATION
 
 #endif // WITH_DEV_AUTOMATION_TESTS
