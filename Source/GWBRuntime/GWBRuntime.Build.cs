@@ -8,6 +8,9 @@ public class GWBRuntime : ModuleRules
 	{
 		PCHUsage = ModuleRules.PCHUsageMode.UseExplicitOrSharedPCHs;
 		
+		// Enable C++20 for std::source_location support
+		CppStandard = CppStandardVersion.Cpp20;
+		
 		PublicIncludePaths.AddRange(
 			new string[] {
 				// ... add public include paths required here ...
