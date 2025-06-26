@@ -2,6 +2,9 @@
 
 #include "Extensions.h"
 
+/**
+ * @brief Modifies the work budget by escalating it each time that there is too much work in a single frame.
+ */
 class FFrameBudgetEscalationModifierImpl {
 private:
 	double EscalationScalar = 0;
@@ -15,5 +18,5 @@ protected:
 	FORCEINLINE void OnBudgetExceededImpl(EBudgetExceededType Type, const uint32& RemainingWorkCount) {}
 };
 
-// Type definitions for concrete implementations
+// type erasure based implementation
 using FFrameBudgetEscalationModifier = ValueModifierExtension<FFrameBudgetEscalationModifierImpl, double>;

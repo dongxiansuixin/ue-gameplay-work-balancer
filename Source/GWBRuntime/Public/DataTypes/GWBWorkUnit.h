@@ -20,6 +20,12 @@ struct GWBRUNTIME_API FGWBWorkUnitCallback
 	FGWBAbortWorkDelegate AbortCallback;
 };
 
+/**
+ * @brief The stateful record of a unit of work that needs to be done. As a user you should use `FGWBWorkUnitHandle`.
+ * This is intended to be an internal record and not really something for end-users to need to deal with (copying it around etc.)
+ * End users of the system should rely on `FGWBWorkUnitHandle` which provides a way to access the delegates you need
+ * when work is ready to be done or when the underlying work unit is aborted or fails.
+ */
 USTRUCT(BlueprintType)
 struct GWBRUNTIME_API FGWBWorkUnit
 {

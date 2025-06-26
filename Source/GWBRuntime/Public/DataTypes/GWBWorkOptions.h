@@ -2,6 +2,12 @@
 
 #include "GWBWorkOptions.generated.h"
 
+/**
+ * @brief Used when scheduling work to inform the `GWBManager` how to treat this unit of work.
+ * The important fields are `Priority`, `MaxDelay, and `MaxNumSkippedFrames`... if these are defined
+ * the manager will force fire the work unit to do work if those are exceeded. This allows you to schedule work that
+ * has an effective maximum delay before it's done even if it causes frame hitches.
+ */
 USTRUCT(BlueprintType)
 struct GWBRUNTIME_API FGWBWorkOptions
 {

@@ -7,8 +7,6 @@
 #include "UObject/Object.h"
 #include "GWBTimeSlicedLoopScope.generated.h"
 
-// TODO: implement - BudgetedForLoop(0.1f, 10, Array,[](){ });
-
 /**
  * A convenience API to use time slicers in simple loops: allows you to control a for loop with an underlying hidden
  * `UGWBTimeSlicer` in order to distribute work across multiple frames. When it goes out of scope it resets the budget
@@ -37,6 +35,20 @@
  * What this does is makes sure to break the loop until next tick once either FrameBudget is exceeded or the we do
  * more than MaxCountAllowedPerFrame worth of expensive processing function calls. If we have plenty of budget, it will
  * just reset back for the next tick once this struct goes out of scope.
+ *
+ * This struct is intended to be used in conjuction with `GWBTimeSliceScopedHandle` which handles resetting the
+ * time budgets when it goes out of scope one level outside the for-loop like so:
+ * ```
+ * {
+ *   // resets used budgets when it goes out of scope
+ *   FGWBTimeSliceScopedHandle TimeSlicer(this, FName("OverlapsSlicer"), FrameBudget, MaxCountAllowedPerFrame);
+ *   for (...)
+ *   {
+ *     // increments used up budgets when it goes out of scope
+ *     FGWBTimeSlicedLoopScope TimeSlicedWork(this, FName("OverlapsSlicer"), FrameBudget, MaxCountAllowedPerFrame);
+ *   }
+ * }
+ * ```
  */
 USTRUCT()
 struct GWBRUNTIME_API FGWBTimeSlicedLoopScope

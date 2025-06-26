@@ -16,7 +16,13 @@
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FGWBOnBeforeDoWorkDelegate, float, DeltaTime);
 
 /**
- * 
+ * Manages the work loop, tracks budgets, and fires off the work delegates when work needs to be done.
+ *
+ * To use the manager to schedule some work:
+ * - Make sure your CVars are configured. The most important ones are `gwb.frame.budget` and `gwb.enabled`.
+ * - Grab the singleton you can grab from `UGWBSubsystem::GetManager`
+ * - Use `ScheduleWork` to schedule a work unit. It returns a handle that has a delegate you can access via `Handle.GetWorkCallback()`
+ * - Bind a function to the delegate and do your work in that function. Your bound function will be called if there is room in the budget.
  */
 UCLASS(config = Game)
 class GWBRUNTIME_API UGWBManager : public UObject
@@ -55,37 +61,54 @@ public:
 	UPROPERTY()
 	FGWBOnBeforeDoWorkDelegate OnBeforeDoWorkDelegate;
 
-	/** Work Group settings that can be defined in the INI */
+	/**
+	 * Work group settings config that should be defined in the INI.
+	 * It's totally fine to just have one work group, but since each group can have it's own budget
+	 * you might find it helpful to break out things like VFX into a group and cleaning up dead enemies into another
+	 * group.
+	 */
 	UPROPERTY(Config)
 	TArray<FGWBWorkGroupDefinition> WorkGroupDefinitions;
 
 protected:
 
+	///
 	/// <core-api>
+	/// 
 	void				Reset();
 	FGWBWorkUnitHandle	ScheduleWork(const FName& WorkGroupId, const FGWBWorkOptions& WorkOptions);
 	void				DoWork();
 	void				DoWorkForGroup(FGWBWorkGroup& WorkGroup);
 	void				DoWorkForUnit(const FGWBWorkUnit& WorkUnit) const;
+	///
 	/// </core-api>
+	///
 
+	///
 	/// <extension-points>
+	///
 	void				ApplyBudgetModifiers(double& FrameBudget);
 	void				ApplyGroupBudgetModifiers(FName GroupId, double& TimeBudget, int32& UnitCountBudget);
 	void				OnWorkScheduled(FName GroupId);
 	void				OnWorkDeferred(uint32 DeferredWorkUnitCount);
 	void				OnWorkGroupDeferred(FName WorkGroupId);
 	void				OnWorkUnitDeferred(FName WorkGroupId);
+	///
 	/// </extension-points>
+	///
 	
 public:
 	
+	///
 	/// <state>
+	///
 	bool				bIsDoingWork;
 	uint32				TotalWorkCount;
 	TSet<FGWBWorkGroup, FGWBWorkGroupSetKeyFuncs> WorkGroups;
 	bool				bPendingReset;
+	///
 	/// </state>
+	///
 
 protected:
 	

@@ -8,8 +8,9 @@
 #include "GWBTimeSliceScopedHandle.generated.h"
 
 /**
- * 
-*/
+ * @brief Manages resetting time slicer used budgets back to 0. Define one of these inside a function but outside a loop and when it goes out of scope it resets the time slice budgets.
+ * @see `FGWBTimeSlicedLoopScope`
+ */
 USTRUCT()
 struct GWBRUNTIME_API FGWBTimeSliceScopedHandle
 {

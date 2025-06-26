@@ -2,8 +2,6 @@
 
 #pragma once
 
-#include "Modules/ModuleManager.h"
-
 GWBRUNTIME_API DECLARE_LOG_CATEGORY_EXTERN(Log_GameplayWorkBalancer, Log, All);
 
 class FGWBRuntimeModule : public IModuleInterface
