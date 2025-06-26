@@ -46,14 +46,14 @@ bool UGWBTimeSlicer::HasBudgetBeenExceeded() const
 {
 	return HasWorkUnitCountBudgetBeenExceeded() || HasFrameBudgetBeenExceeded();
 }
-UE_DISABLE_OPTIMIZATION
+
 bool UGWBTimeSlicer::HasFrameBudgetBeenExceeded() const
 {
 	const auto RemainingTime = GetRemainingTimeInBudget();
 	const bool IsOutOfTime = RemainingTime <= DOUBLE_SMALL_NUMBER;
 	return FrameTimeBudget >= 0 ? IsOutOfTime : false;
 }
-UE_ENABLE_OPTIMIZATION
+
 bool UGWBTimeSlicer::HasWorkUnitCountBudgetBeenExceeded() const
 {
 	return WorkUnitCountBudget > 0 ? GetRemainingWorkUnitCountBudget() <= 0 : false;
