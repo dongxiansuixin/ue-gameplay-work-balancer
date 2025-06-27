@@ -26,8 +26,11 @@ void UGWBManager::Initialize()
 	}
 
 	ModifierManager.AddBudgetModifier(FFrameBudgetEscalationModifier());
-	
-	// Scheduler->StartWorkCycleDelegate.BindRaw(this, &UGWBManager::DoWork);
+
+	Scheduler->StartWorkCycleDelegate.BindLambda([&]()
+	{
+		DoWork();
+	});
 }
 
 TArray<FName> UGWBManager::GetValidGroupNames() const

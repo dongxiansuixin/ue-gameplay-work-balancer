@@ -8,11 +8,13 @@ void UGWBSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 {
 	Super::Initialize(Collection);
 	Manager = NewObject<UGWBManager>();
+	Manager->Initialize();
 }
 
 void UGWBSubsystem::Deinitialize()
 {
 	Super::Deinitialize();
+	Manager->Reset();
 }
 
 UGWBManager* UGWBSubsystem::GetManager() const

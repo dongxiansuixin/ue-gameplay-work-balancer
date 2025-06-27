@@ -37,6 +37,8 @@ class GWBRUNTIME_API UGWBManager : public UObject
 #endif
 // END for unit tests
 	
+	friend class UGWBSubsystem;
+	
 public:
 
 	UGWBManager();
