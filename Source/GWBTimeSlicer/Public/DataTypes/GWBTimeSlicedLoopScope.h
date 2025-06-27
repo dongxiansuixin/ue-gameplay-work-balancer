@@ -61,6 +61,16 @@ struct GWBTIMESLICER_API FGWBTimeSlicedLoopScope
 	{
 	}
 
+	FGWBTimeSlicedLoopScope(const UObject* WorldContext, FName Id)
+			: Id(Id)
+			,WorldContextObject(WorldContext)
+	{
+		GlobalTimeSlicer = UGWBTimeSlicer::Get(WorldContext, Id);
+		ensureAlwaysMsgf(GlobalTimeSlicer->GetFrameTimeBudget() > 0.f, TEXT("FGWBTimeSlicedLoopScope -> attempting to start time slicer %s with no budget"), *Id.ToString());
+		GlobalTimeSlicer.Get()
+			->StartWork();
+	}
+
 	FGWBTimeSlicedLoopScope(const UObject* WorldContext, FName Id, double FrameTimeBudgetIn, uint32 WorkCountBudgetIn)
 			: Id(Id)
 			,WorldContextObject(WorldContext)
@@ -83,6 +93,7 @@ struct GWBTIMESLICER_API FGWBTimeSlicedLoopScope
 	bool IsOverBudget() const { return GlobalTimeSlicer.Get()->HasBudgetBeenExceeded(); }
 	bool IsOverFrameTimeBudget() const { return GlobalTimeSlicer.Get()->HasFrameBudgetBeenExceeded(); }
 	bool IsOverUnitCountBudget() const { return GlobalTimeSlicer.Get()->HasWorkUnitCountBudgetBeenExceeded(); }
+	double GetRemainingTimeInBudget() const { return UGWBTimeSlicer::Get(WorldContextObject.Get(), Id)->GetRemainingTimeInBudget(); }
 
 	TWeakObjectPtr<UGWBTimeSlicer> GetTimeSlicer() const { return GlobalTimeSlicer; };
 	

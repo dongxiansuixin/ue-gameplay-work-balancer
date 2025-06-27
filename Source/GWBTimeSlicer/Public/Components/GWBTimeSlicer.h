@@ -42,6 +42,7 @@ public:
 	uint32 GetRemainingWorkUnitCountBudget() const;
 	FORCEINLINE uint32 GetCycleWorkUnitsCompleted() const { return CycleWorkUnitsCompleted; };
 	FORCEINLINE double GetCycleLastTimestamp() const { return CycleLastTimestamp; };
+	FORCEINLINE double GetLastResetTimestamp() const { return LastResetTimestamp; };
 	// </api>
 
 	// <builder-methods>

@@ -118,11 +118,12 @@ public:
 	///
 	/// </state>
 	///
+	///
+
+	TArray<FName> GetValidGroupNames() const;
 
 protected:
 	
 	TWeakObjectPtr<UGWBScheduler> Scheduler;
 	FModifierManager ModifierManager; // Extension framework
-	
-	TArray<FName> GetValidGroupNames() const;
 };

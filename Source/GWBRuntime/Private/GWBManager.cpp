@@ -8,6 +8,8 @@
 #include "Stats.h"
 #include "CVars.h"
 
+#define TO_MS_STRING(MS) *FString::Printf(TEXT("%.2fms"), (MS*1000))
+
 UGWBManager::UGWBManager()
 {
 	FGWBWorkGroupDefinition Default;
@@ -38,10 +40,10 @@ void UGWBManager::Initialize(UWorld* ForWorld)
 TArray<FName> UGWBManager::GetValidGroupNames() const
 {
 	TArray<FName> Names;
-	Names.Reserve(WorkGroups.Num());
-	for (auto Group : WorkGroups)
+	Names.Reserve(WorkGroupDefinitions.Num());
+	for (auto Group : WorkGroupDefinitions)
 	{
-		Names.Add(Group.Def.Id);
+		Names.Add(Group.Id);
 	}
 	return Names;
 }
@@ -50,9 +52,11 @@ void UGWBManager::Reset()
 {
 	if (bIsDoingWork)
 	{
+		UE_LOG(Log_GameplayWorkBalancer, VeryVerbose, TEXT("UGWBManager::Reset -> scheduled reset because there is still work"));
 		bPendingReset = true;
 		return;
 	}
+	UE_LOG(Log_GameplayWorkBalancer, VeryVerbose, TEXT("UGWBManager::Reset -> TotalWorkCount: %d"), TotalWorkCount);
 	OnBeforeDoWorkDelegate.Clear();
 	bIsDoingWork = false;
 	bPendingReset = false;
@@ -65,6 +69,7 @@ void UGWBManager::Reset()
 			WorkUnit.MarkAborted();
 		}
 	}
+	TotalWorkCount = 0;
 	WorkGroups.Reset();
 }
 FGWBWorkUnitHandle UGWBManager::ScheduleWork(const UObject* WorldContextObject, const FName WorkGroupId, const FGWBWorkOptions& WorkOptions)
@@ -130,8 +135,10 @@ FGWBWorkUnitHandle UGWBManager::ScheduleWork(const FName& WorkGroupId, const FGW
 	
 	TotalWorkCount++;
 	SET_DWORD_STAT(STAT_GameWorkBalancer_WorkCount, TotalWorkCount);
+	
+	Scheduler->Start();
 
-	UE_LOG(Log_GameplayWorkBalancer, VeryVerbose, TEXT("UGWBManager::ScheduleWork -> Group: %s, Instance %d (GroupWorkCount: %d, GlobalWorkCount: %d)"),
+	UE_LOG(Log_GameplayWorkBalancer, VeryVerbose, TEXT("UGWBManager::ScheduleWork\t-> Group: %s, Instance %d\t\t(GroupWorkCount: %d, GlobalWorkCount: %d)"),
 			*WorkGroupId.ToString(),
 			WorkUnit.GetId(),
 			WorkGroup.WorkUnitsQueue.Num(),
@@ -139,8 +146,6 @@ FGWBWorkUnitHandle UGWBManager::ScheduleWork(const FName& WorkGroupId, const FGW
 
 	// allow extensions to react to work scheduling
 	OnWorkScheduled(WorkGroupId);
-	
-	Scheduler->Start();
 
 	return FGWBWorkUnitHandle(WorkUnit);
 };
@@ -156,7 +161,7 @@ void UGWBManager::DoWork()
 	// when this struct goes out of scope it's destructor will reset the time slicer we use to budget the gameplay work balancer
 	FGWBTimeSliceScopedHandle TimeSlicer(this, FName("GameplayWorkBalancer"), FrameBudget, WorkCountBudget);
 
-	const double TimeSinceLastWork = FPlatformTime::Seconds() - TimeSlicer.GetLastCycleTimestamp();
+	const double TimeSinceLastWork = FPlatformTime::Seconds() - TimeSlicer.GetLastResetTimestamp();
 	OnBeforeDoWorkDelegate.Broadcast(TimeSinceLastWork);
 	bIsDoingWork = true;
 
@@ -174,10 +179,10 @@ void UGWBManager::DoWork()
 	{
 		SCOPE_CYCLE_COUNTER(STAT_DoWorkForFrame_Groups);
 
-		UE_LOG(Log_GameplayWorkBalancer, VeryVerbose, TEXT("UGWBManager::DoWork -> Start (NumGroups: %d, GlobalWorkCount: %d, TimeBudget: %f)"),
+		UE_LOG(Log_GameplayWorkBalancer, VeryVerbose, TEXT("UGWBManager::DoWork\t-> START\t(NumGroups: %d, GlobalWorkCount: %d, TimeBudget: %s)"),
 			WorkGroupsWithWork.Num(),
 			TotalWorkCount,
-			FrameBudget
+			TO_MS_STRING(FrameBudget)
 		);
 
 		uint32 i = 0;
@@ -188,7 +193,7 @@ void UGWBManager::DoWork()
 
 			if (TimeSlicer.IsOverBudget())
 			{
-				UE_LOG(Log_GameplayWorkBalancer, Log, TEXT("UGWBManager::DoWork -> OVER BUDGET. Skip Group: %s (NumSkippedFrames: %d MaxNumSkippedFrames: %d)"), *WorkGroup.Def.Id.ToString(), WorkGroup.NumSkippedFrames, WorkGroup.Def.MaxNumSkippedFrames);
+				UE_LOG(Log_GameplayWorkBalancer, Log, TEXT("UGWBManager::DoWork\t-> OVER BUDGET\t - Skip Group: %s (NumSkippedFrames: %d MaxNumSkippedFrames: %d)"), *WorkGroup.Def.Id.ToString(), WorkGroup.NumSkippedFrames, WorkGroup.Def.MaxNumSkippedFrames);
 				WorkGroup.NumSkippedFrames++;
 				// if we skipped work for this group, use it's configuration to control how much to escalate it's own priority when skipped
 				WorkGroup.PriorityOffset += WorkGroup.Def.SkipPriorityDelta;
@@ -210,10 +215,11 @@ void UGWBManager::DoWork()
 			i++;
 		}
 
-		UE_LOG(Log_GameplayWorkBalancer, VeryVerbose, TEXT("UGWBManager::DoWork -> End (NumGroups: %d, WorkUnitsDoneThisCycle: %d, TimeSpent: %.3f)"),
+		double TimeSpent = FPlatformTime::Seconds() - TimeSlicer.GetLastResetTimestamp();
+		UE_LOG(Log_GameplayWorkBalancer, VeryVerbose, TEXT("UGWBManager::DoWork\t-> END\t\t(NumGroups: %d, WorkUnitsDoneThisCycle: %d, TimeSpent: %s)"),
 			WorkGroupsWithWork.Num(),
 			TimeSlicer.GetWorkUnitsCompleted(),
-			FPlatformTime::Seconds() - TimeSlicer.GetLastCycleTimestamp()
+			TO_MS_STRING(TimeSpent)
 		);
 	}
 
@@ -293,7 +299,7 @@ void UGWBManager::DoWorkForGroup(FGWBWorkGroup& WorkGroup)
 		if (TimeSlicedGroupWork.IsOverUnitCountBudget() ||
 			TimeSlicedWork.IsOverUnitCountBudget())
 		{
-			UE_LOG(Log_GameplayWorkBalancer, VeryVerbose, TEXT("UGWBManager::DoWorkForGroup -> OVER GROUP UNIT COUNT BUDGET Group: %s, WorkUnits Remaining: %d"),
+			UE_LOG(Log_GameplayWorkBalancer, VeryVerbose, TEXT("UGWBManager::DoWorkForGroup \"%s\"\t -> OVER GROUP UNIT COUNT BUDGET, WorkUnits Remaining: %d"),
 				*WorkGroup.Def.Id.ToString(),
 				WorkGroup.WorkUnitsQueue.Num());
 				
@@ -310,7 +316,7 @@ void UGWBManager::DoWorkForGroup(FGWBWorkGroup& WorkGroup)
 		if (TimeSlicedGroupWork.IsOverFrameTimeBudget() ||
 			TimeSlicedWork.IsOverFrameTimeBudget())
 		{
-			UE_LOG(Log_GameplayWorkBalancer, VeryVerbose, TEXT("UGWBManager::DoWorkForGroup -> OVER GROUP TIME BUDGET Group: %s, WorkUnits Remaining: %d"),
+			UE_LOG(Log_GameplayWorkBalancer, VeryVerbose, TEXT("UGWBManager::DoWorkForGroup \"%s\"\t -> OVER GROUP TIME BUDGET, WorkUnits Remaining: %d"),
 				*WorkGroup.Def.Id.ToString(),
 				WorkGroup.WorkUnitsQueue.Num());
 			
@@ -344,15 +350,16 @@ void UGWBManager::DoWorkForGroup(FGWBWorkGroup& WorkGroup)
 	
 			ModifierManager.NotifyWorkComplete(TotalWorkCount);
 			
-			UE_LOG(Log_GameplayWorkBalancer, VeryVerbose, TEXT("UGWBManager::DoWorkForGroup -> Did work for Group: %s, Instance %d (remaining: %d, global: %d), Start: %.3f, End: %.3f, Delta: %.3f, Avg: %.3f"),
+			UE_LOG(Log_GameplayWorkBalancer, VeryVerbose, TEXT("UGWBManager::DoWorkForGroup \"%s\"\t -> Completed Instance %d\t(remaining: %d, global: %d), Start: %.3f, End: %.3f, Delta: %s, Avg: %s, RemainingTimeInBudget: %s"),
 				*WorkGroup.Def.Id.ToString(),
 				WorkUnit.GetId(),
 				WorkGroup.WorkUnitsQueue.Num() - (WorkUnit.HasWork() ? 0 : 1),
-				TotalWorkCount - (WorkUnit.HasWork() ? 0 : 1),
+				TotalWorkCount,
 				StartWorkTimestamp,
 				EndWorkTimestamp,
-				UnitWorkDeltaTime,
-				WorkGroup.AverageUnitTime
+				TO_MS_STRING(UnitWorkDeltaTime),
+				TO_MS_STRING(WorkGroup.AverageUnitTime),
+				TO_MS_STRING(TimeSlicedWork.GetRemainingTimeInBudget())
 			);
 		}
 

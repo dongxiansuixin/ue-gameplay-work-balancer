@@ -52,10 +52,16 @@ struct GWBTIMESLICER_API FGWBTimeSliceScopedHandle
 	FName Id;
 
 	bool IsOverBudget() const { return UGWBTimeSlicer::Get(WorldContextObject.Get(), Id)->HasBudgetBeenExceeded(); }
+	double GetRemainingTimeInBudget() const { return UGWBTimeSlicer::Get(WorldContextObject.Get(), Id)->GetRemainingTimeInBudget(); }
 	uint32 GetWorkUnitsCompleted() const { return UGWBTimeSlicer::Get(WorldContextObject.Get(), Id)->GetCycleWorkUnitsCompleted(); }
-	uint32 GetLastCycleTimestamp() const { return UGWBTimeSlicer::Get(WorldContextObject.Get(), Id)->GetCycleLastTimestamp(); }
+	double GetLastCycleTimestamp() const { return UGWBTimeSlicer::Get(WorldContextObject.Get(), Id)->GetCycleLastTimestamp(); }
+	double GetLastResetTimestamp() const { return UGWBTimeSlicer::Get(WorldContextObject.Get(), Id)->GetLastResetTimestamp(); }
 
-	FGWBTimeSlicedLoopScope NewTimeSlicedLoopScope(double FrameTimeBudgetIn, uint32 WorkCountBudgetIn) const
+	FGWBTimeSlicedLoopScope StartLoopScope() const
+	{
+		return FGWBTimeSlicedLoopScope(WorldContextObject.Get(), Id);
+	}
+	FGWBTimeSlicedLoopScope StartLoopScopeWithCustomBudget(double FrameTimeBudgetIn, uint32 WorkCountBudgetIn) const
 	{
 		return FGWBTimeSlicedLoopScope(WorldContextObject.Get(), Id, FrameTimeBudgetIn, WorkCountBudgetIn);
 	}

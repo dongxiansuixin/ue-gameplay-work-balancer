@@ -1,6 +1,6 @@
 #include "GWBTimeSlicerModule.h"
 
-DEFINE_LOG_CATEGORY(Log_GWBTimeSlicer);
+DEFINE_LOG_CATEGORY(Log_GameplayWorkTimeSlicer);
 
 #define LOCTEXT_NAMESPACE "FGWBTimeSlicerModule"
 

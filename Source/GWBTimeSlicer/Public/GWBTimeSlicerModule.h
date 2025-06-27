@@ -3,7 +3,7 @@
 #include "CoreMinimal.h"
 #include "Modules/ModuleManager.h"
 
-GWBTIMESLICER_API DECLARE_LOG_CATEGORY_EXTERN(Log_GWBTimeSlicer, Log, All);
+GWBTIMESLICER_API DECLARE_LOG_CATEGORY_EXTERN(Log_GameplayWorkTimeSlicer, Log, All);
 
 /**
  * The public interface to this module

@@ -27,7 +27,7 @@ void UGWBTimeSlicer::Reset()
 	CycleWorkUnitsCompleted = 0;
 	CycleLastTimestamp = 0;
 	LastResetTimestamp = FPlatformTime::Seconds();
-	UE_LOG(Log_GWBTimeSlicer, VeryVerbose, TEXT("UGWBTimeSlicer::Reset -> Remaining Budget: %f)"), GetRemainingTimeInBudget());
+	UE_LOG(Log_GameplayWorkTimeSlicer, VeryVerbose, TEXT("UGWBTimeSlicer::Reset -> Remaining Budget: %f)"), GetRemainingTimeInBudget());
 }
 
 void UGWBTimeSlicer::StartWork()
@@ -39,7 +39,7 @@ void UGWBTimeSlicer::EndWork()
 {
 	CycleWorkUnitsCompleted++;
 	RecordTelemetry(FPlatformTime::Seconds() - CycleLastTimestamp);
-	UE_LOG(Log_GWBTimeSlicer, VeryVerbose, TEXT("UGWBTimeSlicer::EndWork -> Remaining Budget: %f)"), GetRemainingTimeInBudget());
+	UE_LOG(Log_GameplayWorkTimeSlicer, VeryVerbose, TEXT("UGWBTimeSlicer::EndWork -> Remaining Budget: %f)"), GetRemainingTimeInBudget());
 }
 
 bool UGWBTimeSlicer::HasBudgetBeenExceeded() const
