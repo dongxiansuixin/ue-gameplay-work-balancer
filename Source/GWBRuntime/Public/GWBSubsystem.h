@@ -24,6 +24,9 @@ public:
 
 	/** The primary singleton used to manage work balancing. */
 	UGWBManager* GetManager() const;
+
+	void OnPostWorldInitialization(UWorld* World, const UWorld::InitializationValues IVS);
+	void OnWorldBeginTearDown(UWorld* World);
 	
 private:
 

@@ -20,7 +20,7 @@ class UGWBManagerMock : public UGWBManager
 {
 	GENERATED_BODY()
 public:
-	UGWBScheduler* TEST_GetScheduler() { return Scheduler; };
+	UGWBScheduler* TEST_GetScheduler() { return Scheduler.Get(); };
 	FGWBWorkUnitHandle TEST_ScheduleWork(const FName& WorkGroupId, const FGWBWorkOptions& WorkOptions) { return ScheduleWork(WorkGroupId, WorkOptions); }
 	void TEST_DoWork() { DoWork(); };
 	uint32 TEST_GetWorkUnitCount()

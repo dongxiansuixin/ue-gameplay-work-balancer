@@ -43,7 +43,7 @@ public:
 
 	UGWBManager();
 	
-	void Initialize();
+	void Initialize(UWorld* ForWorld);
 	
 	/**
 	 * @param WorkGroupId the group the work should be scheduled for.
@@ -121,7 +121,7 @@ public:
 
 protected:
 	
-	UPROPERTY() TObjectPtr<UGWBScheduler>	Scheduler;
+	TWeakObjectPtr<UGWBScheduler> Scheduler;
 	FModifierManager ModifierManager; // Extension framework
 	
 	TArray<FName> GetValidGroupNames() const;

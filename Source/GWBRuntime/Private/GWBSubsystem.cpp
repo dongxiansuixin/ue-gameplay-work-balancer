@@ -8,7 +8,9 @@ void UGWBSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 {
 	Super::Initialize(Collection);
 	Manager = NewObject<UGWBManager>();
-	Manager->Initialize();
+	
+	FWorldDelegates::OnPostWorldInitialization.AddUObject(this, &UGWBSubsystem::OnPostWorldInitialization);
+	FWorldDelegates::OnWorldBeginTearDown.AddUObject(this, &UGWBSubsystem::OnWorldBeginTearDown);
 }
 
 void UGWBSubsystem::Deinitialize()
@@ -22,3 +24,18 @@ UGWBManager* UGWBSubsystem::GetManager() const
 	return Manager;
 }
 
+void UGWBSubsystem::OnPostWorldInitialization(UWorld* World, const UWorld::InitializationValues IVS)
+{
+	if (World->IsGameWorld())
+	{
+		Manager->Initialize(World);
+	}
+}
+
+void UGWBSubsystem::OnWorldBeginTearDown(UWorld* World)
+{
+	if (World->IsGameWorld())
+	{
+		Manager->Reset();
+	}
+}

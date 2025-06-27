@@ -15,9 +15,11 @@ UGWBManager::UGWBManager()
 	WorkGroupDefinitions.Add(Default);
 }
 
-void UGWBManager::Initialize()
+void UGWBManager::Initialize(UWorld* ForWorld)
 {
-	Scheduler = NewObject<UGWBScheduler>();
+	UE_LOG(Log_GameplayWorkBalancer, VeryVerbose, TEXT("UGWBManager::Initialize -> Group Count: %d"), WorkGroupDefinitions.Num());
+	
+	Scheduler = NewObject<UGWBScheduler>(ForWorld);
 	
 	// Generate work categories from definitions
 	for (auto& Def : WorkGroupDefinitions)

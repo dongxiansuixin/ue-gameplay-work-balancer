@@ -1,16 +1,16 @@
 #include "Components/GWBScheduler.h"
+#include "GWBRuntimeModule.h"
 
 
 void UGWBScheduler::Start() 
 {
-	if (ScheduleNextFrame())
-	{
-		return;
-	}
+	ScheduleNextFrame();
 };
 bool UGWBScheduler::ScheduleNextFrame() 
 {
 	if (TickDelegateHandle.IsValid()) return false;
+	
+	UE_LOG(Log_GameplayWorkBalancer, VeryVerbose, TEXT("UGWBScheduler::ScheduleNextFrame"));
 
 	if (const UWorld* World = GetWorld())
 	{
@@ -30,6 +30,8 @@ void UGWBScheduler::TickWork()
 void UGWBScheduler::Stop() 
 {
 	if (!TickDelegateHandle.IsValid()) return;
+	
+	UE_LOG(Log_GameplayWorkBalancer, VeryVerbose, TEXT("UGWBScheduler::Stop"));
 
 	if (const UWorld* World = GetWorld())
 	{
