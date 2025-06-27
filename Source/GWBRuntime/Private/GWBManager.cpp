@@ -8,6 +8,13 @@
 #include "Stats.h"
 #include "CVars.h"
 
+UGWBManager::UGWBManager()
+{
+	FGWBWorkGroupDefinition Default;
+	Default.Id = FName(TEXT("Default"));
+	WorkGroupDefinitions.Add(Default);
+}
+
 void UGWBManager::Initialize()
 {
 	Scheduler = NewObject<UGWBScheduler>();
@@ -21,6 +28,17 @@ void UGWBManager::Initialize()
 	ModifierManager.AddBudgetModifier(FFrameBudgetEscalationModifier());
 	
 	// Scheduler->StartWorkCycleDelegate.BindRaw(this, &UGWBManager::DoWork);
+}
+
+TArray<FName> UGWBManager::GetValidGroupNames() const
+{
+	TArray<FName> Names;
+	Names.Reserve(WorkGroups.Num());
+	for (auto Group : WorkGroups)
+	{
+		Names.Add(Group.Def.Id);
+	}
+	return Names;
 }
 
 void UGWBManager::Reset()
@@ -67,6 +85,14 @@ void UGWBManager::AbortWorkUnit(const UObject* WorldContextObject, FGWBWorkUnitH
 		}
 	}
 }
+
+void UGWBManager::BindBlueprintCallback(FGWBWorkUnitHandle& Handle, const FGWBBlueprintWorkDelegate& OnDoWork)
+{
+	Handle.OnHandleWork([OnDoWork](float DeltaTime) {
+		OnDoWork.ExecuteIfBound(DeltaTime);
+	});
+}
+
 FGWBWorkUnitHandle UGWBManager::ScheduleWork(const FName& WorkGroupId, const FGWBWorkOptions& WorkOptions)
 {
 	// if the game balancer is disabled, just do the work

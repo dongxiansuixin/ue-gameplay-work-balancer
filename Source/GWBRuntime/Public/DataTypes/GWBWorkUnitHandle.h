@@ -4,6 +4,8 @@
 #include "GWBWorkUnit.h"
 #include "GWBWorkUnitHandle.generated.h"
 
+DECLARE_DYNAMIC_DELEGATE_OneParam(FGWBBlueprintWorkDelegate, float, DeltaTime);
+
 /**
  * Returned by the `GWBManager` when you schedule work, this handle allows you to provide the callback for the code you
  * want balanced across frames via either `OnHandleWork([](){..}) or via the delegate in `GetWorkCallback()`.

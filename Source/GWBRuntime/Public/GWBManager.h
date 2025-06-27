@@ -9,6 +9,7 @@
 #include "DataTypes/GWBWorkGroup.h"
 #include "DataTypes/GWBWorkUnit.h"
 #include "DataTypes/GWBWorkOptions.h"
+#include "DataTypes/GWBWorkUnitHandle.h"
 #include "Extensions/ModifierManager.h"
 
 #include "GWBManager.generated.h"
@@ -37,6 +38,8 @@ class GWBRUNTIME_API UGWBManager : public UObject
 // END for unit tests
 	
 public:
+
+	UGWBManager();
 	
 	void Initialize();
 	
@@ -46,16 +49,20 @@ public:
 	 * @returns A work handle that can be used to register a callback when work is ready to be done
 	 * NOTE: call AbortGameWork or abort the returned promise to cancel the work.
 	 */
-	UFUNCTION(BlueprintCallable, Category = "GameWorkBalancer", meta=(GameplayTagFilter="GameWork"))
-	static FGWBWorkUnitHandle ScheduleWork(const UObject* WorldContextObject, FName WorkGroupId, const FGWBWorkOptions& WorkOptions);
+	UFUNCTION(BlueprintCallable, Category = "GameWorkBalancer", meta=(GameplayTagFilter="GameWork", WorldContext="WorldContextObject"))
+	static FGWBWorkUnitHandle ScheduleWork(const UObject* WorldContextObject, UPARAM(meta = (GetOptions = "GetValidGroupNames")) FName WorkGroupId = "Default", const FGWBWorkOptions& WorkOptions = FGWBWorkOptions());
 	
 	/**
 	 * Aborting a work unit is, unfortunately, expensive as it uses a handle indexed by Id and loops through
 	 * all the groups and their work units to find the one to abort.
 	 * ...Should be improved in the future.
 	 */
-	UFUNCTION(BlueprintCallable, Category = "GameWorkBalancer", meta=(GameplayTagFilter="GameWork"))
+	UFUNCTION(BlueprintCallable, Category = "GameWorkBalancer", meta=(GameplayTagFilter="GameWork", WorldContext="WorldContextObject"))
 	static void AbortWorkUnit(const UObject* WorldContextObject, FGWBWorkUnitHandle WorkUnitHandle);
+
+	/** Bind a Blueprint callback to a work handle. */
+	UFUNCTION(BlueprintCallable, Category = "GameWorkBalancer")
+	static void BindBlueprintCallback(UPARAM(ref) FGWBWorkUnitHandle& Handle, const FGWBBlueprintWorkDelegate& OnDoWork);
 
 	/** Delegate fired just before doing work for a frame, to allow external systems to just-in-time schedule work. */
 	UPROPERTY()
@@ -114,4 +121,6 @@ protected:
 	
 	UPROPERTY() TObjectPtr<UGWBScheduler>	Scheduler;
 	FModifierManager ModifierManager; // Extension framework
+	
+	TArray<FName> GetValidGroupNames() const;
 };
