@@ -46,6 +46,7 @@ struct GWBRUNTIME_API FGWBWorkUnitHandle
 	static FGWBWorkUnitHandle PassthroughHandle()
 	{
 		FGWBWorkUnitHandle Handle;
+		Handle.WorkUnitCallbackHandle = MakeShared<FGWBWorkUnitCallback>();
 		Handle.bShouldAutoFire = true;
 		return Handle;
 	}

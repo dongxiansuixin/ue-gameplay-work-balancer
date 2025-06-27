@@ -105,7 +105,7 @@ FGWBWorkUnitHandle UGWBManager::ScheduleWork(const FName& WorkGroupId, const FGW
 
 	// Grab the work group data for the group ID we are scheduling the unit of work for 
 	const FSetElementId WorkGroupIndex = WorkGroups.FindId(WorkGroupId);
-	if (!ensureAlwaysMsgf(WorkGroupIndex.IsValidId(), TEXT("ScheduleWorkUnit -> Invalid WorkGroupId: %s"), *WorkGroupId.ToString())) return FGWBWorkUnitHandle();
+	if (!ensureAlwaysMsgf(WorkGroupIndex.IsValidId(), TEXT("ScheduleWorkUnit -> Invalid WorkGroupId: %s"), *WorkGroupId.ToString())) return FGWBWorkUnitHandle::PassthroughHandle();
 	auto& WorkGroup = WorkGroups[WorkGroupIndex];
 	
 	// schedule a unit of work with the provided options and callback
