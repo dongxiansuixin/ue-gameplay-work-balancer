@@ -55,6 +55,9 @@ private:
 	static const FName ContextOutputPinName;
 	static const FName DeltaTimePinName;
 	static const FName WorkHandlePinName;
+	
+	// Static map to track which graphs already have our shared variable
+	static TMap<TWeakObjectPtr<UEdGraph>, FName> GraphSharedVariables;
 
 	// Helper methods
 	UEdGraphPin* GetContextInputPin() const;
@@ -66,4 +69,6 @@ private:
 	// Context type information
 	bool HasWildcardContextPins() const;
 	FEdGraphPinType GetConnectedContextType() const;
+	
+	FName GetOrCreateSharedVariable(FKismetCompilerContext& CompilerContext, UEdGraph* SourceGraph, FName ValueType);
 };

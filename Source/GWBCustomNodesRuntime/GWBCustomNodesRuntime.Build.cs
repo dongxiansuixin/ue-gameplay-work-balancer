@@ -2,9 +2,9 @@
 
 using UnrealBuildTool;
 
-public class GWBEditor : ModuleRules
+public class GWBCustomNodesRuntime : ModuleRules
 {
-	public GWBEditor(ReadOnlyTargetRules Target) : base(Target)
+	public GWBCustomNodesRuntime(ReadOnlyTargetRules Target) : base(Target)
 	{
 		PCHUsage = ModuleRules.PCHUsageMode.UseExplicitOrSharedPCHs;
 		
@@ -16,7 +16,7 @@ public class GWBEditor : ModuleRules
 				// ... add public include paths required here ...
 			}
 			);
-			
+				
 		
 		PrivateIncludePaths.AddRange(
 			new string[] {
@@ -32,7 +32,6 @@ public class GWBEditor : ModuleRules
 				"CoreUObject",
 				"Engine",
 				"GWBRuntime",
-				"GWBCustomNodesRuntime",
 				// ... add other public dependencies that you statically link with here ...
 			}
 			);
@@ -41,19 +40,8 @@ public class GWBEditor : ModuleRules
 		PrivateDependencyModuleNames.AddRange(
 			new string[]
 			{
-				"UnrealEd",
-				"BlueprintGraph",
-				"KismetCompiler",
-				"ToolMenus",
-				"EditorStyle",
-				"EditorWidgets",
-				"GraphEditor",
-				"Kismet",
-				"PropertyEditor",
-				"SlateCore",
 				"Slate",
-				"ToolMenus",
-				"EditorSubsystem"
+				"SlateCore",
 				// ... add private dependencies that you statically link with here ...	
 			}
 			);

@@ -60,7 +60,7 @@ void UGWBManager::Reset()
 	OnBeforeDoWorkDelegate.Clear();
 	bIsDoingWork = false;
 	bPendingReset = false;
-	Scheduler->Stop();
+	if (Scheduler != nullptr) Scheduler->Stop();
 	for (auto ItCategory = WorkGroups.CreateIterator(); ItCategory; ++ItCategory)
 	{
 		for (auto& WorkUnit : ItCategory->WorkUnitsQueue)
@@ -98,8 +98,8 @@ void UGWBManager::AbortWorkUnit(const UObject* WorldContextObject, FGWBWorkUnitH
 
 void UGWBManager::BindBlueprintCallback(FGWBWorkUnitHandle& Handle, const FGWBBlueprintWorkDelegate& OnDoWork)
 {
-	Handle.OnHandleWork([OnDoWork](float DeltaTime) {
-		OnDoWork.ExecuteIfBound(DeltaTime);
+	Handle.OnHandleWork([OnDoWork](float DeltaTime, const FGWBWorkUnitHandle& Handle) {
+		OnDoWork.ExecuteIfBound(DeltaTime, Handle);
 	});
 }
 
@@ -381,7 +381,7 @@ void UGWBManager::DoWorkForUnit(const FGWBWorkUnit& WorkUnit) const
 	const float TimeSinceScheduled = static_cast<float>(StartInstanceTime - WorkUnit.ScheduledTimestamp);
 
 	// do the work!
-	WorkUnit.GetWorkCallback().ExecuteIfBound(TimeSinceScheduled, FGWBWorkUnitHandle());
+	WorkUnit.GetWorkCallback().ExecuteIfBound(TimeSinceScheduled, FGWBWorkUnitHandle(WorkUnit));
 	WorkUnit.MarkCompleted();
 };
 

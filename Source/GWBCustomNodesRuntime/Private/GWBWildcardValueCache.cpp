@@ -1,4 +1,4 @@
-#include "BlueprintGraph/GWBWildcardValueCache.h"
+#include "GWBWildcardValueCache.h"
 
 
 const FName UGWBWildcardValueCache::PC_Boolean(TEXT("bool"));
@@ -22,67 +22,67 @@ const FName UGWBWildcardValueCache::PC_SoftObject(TEXT("softobject"));
 const FName UGWBWildcardValueCache::PC_SoftClass(TEXT("softclass"));
 
 // Initialize static members
-TMap<FString, int32> UGWBWildcardValueCache::IntCache;
-TMap<FString, float> UGWBWildcardValueCache::FloatCache;
-TMap<FString, FString> UGWBWildcardValueCache::StringCache;
-TMap<FString, bool> UGWBWildcardValueCache::BoolCache;
-TMap<FString, TWeakObjectPtr<UObject>> UGWBWildcardValueCache::ObjectCache;
-TMap<FString, FVector> UGWBWildcardValueCache::VectorCache;
-TMap<FString, FRotator> UGWBWildcardValueCache::RotatorCache;
-TMap<FString, FTransform> UGWBWildcardValueCache::TransformCache;
+TMap<int32, int32> UGWBWildcardValueCache::IntCache;
+TMap<int32, float> UGWBWildcardValueCache::FloatCache;
+TMap<int32, FString> UGWBWildcardValueCache::StringCache;
+TMap<int32, bool> UGWBWildcardValueCache::BoolCache;
+TMap<int32, TWeakObjectPtr<UObject>> UGWBWildcardValueCache::ObjectCache;
+TMap<int32, FVector> UGWBWildcardValueCache::VectorCache;
+TMap<int32, FRotator> UGWBWildcardValueCache::RotatorCache;
+TMap<int32, FTransform> UGWBWildcardValueCache::TransformCache;
 FCriticalSection UGWBWildcardValueCache::CacheLock;
 
 // Set functions
-void UGWBWildcardValueCache::SetWildcardInt(const FString& Key, int32 Value)
+void UGWBWildcardValueCache::SetWildcardInt(const int32 Key, int32 Value)
 {
 	FScopeLock Lock(&CacheLock);
 	IntCache.Add(Key, Value);
 }
 
-void UGWBWildcardValueCache::SetWildcardFloat(const FString& Key, float Value)
+void UGWBWildcardValueCache::SetWildcardFloat(const int32 Key, float Value)
 {
 	FScopeLock Lock(&CacheLock);
 	FloatCache.Add(Key, Value);
 }
 
-void UGWBWildcardValueCache::SetWildcardString(const FString& Key, const FString& Value)
+void UGWBWildcardValueCache::SetWildcardString(const int32 Key, const FString& Value)
 {
 	FScopeLock Lock(&CacheLock);
 	StringCache.Add(Key, Value);
 }
 
-void UGWBWildcardValueCache::SetWildcardBool(const FString& Key, bool Value)
+void UGWBWildcardValueCache::SetWildcardBool(const int32 Key, bool Value)
 {
 	FScopeLock Lock(&CacheLock);
 	BoolCache.Add(Key, Value);
 }
 
-void UGWBWildcardValueCache::SetWildcardObject(const FString& Key, UObject* Value)
+void UGWBWildcardValueCache::SetWildcardObject(const int32 Key, UObject* Value)
 {
 	FScopeLock Lock(&CacheLock);
 	ObjectCache.Add(Key, Value);
 }
 
-void UGWBWildcardValueCache::SetWildcardVector(const FString& Key, const FVector& Value)
+void UGWBWildcardValueCache::SetWildcardVector(const int32 Key, const FVector& Value)
 {
 	FScopeLock Lock(&CacheLock);
 	VectorCache.Add(Key, Value);
 }
 
-void UGWBWildcardValueCache::SetWildcardRotator(const FString& Key, const FRotator& Value)
+void UGWBWildcardValueCache::SetWildcardRotator(const int32 Key, const FRotator& Value)
 {
 	FScopeLock Lock(&CacheLock);
 	RotatorCache.Add(Key, Value);
 }
 
-void UGWBWildcardValueCache::SetWildcardTransform(const FString& Key, const FTransform& Value)
+void UGWBWildcardValueCache::SetWildcardTransform(const int32 Key, const FTransform& Value)
 {
 	FScopeLock Lock(&CacheLock);
 	TransformCache.Add(Key, Value);
 }
 
 // Get functions
-int32 UGWBWildcardValueCache::GetWildcardInt(const FString& Key, int32 DefaultValue)
+int32 UGWBWildcardValueCache::GetWildcardInt(const int32 Key, int32 DefaultValue)
 {
 	FScopeLock Lock(&CacheLock);
 	if (int32* FoundValue = IntCache.Find(Key))
@@ -92,7 +92,7 @@ int32 UGWBWildcardValueCache::GetWildcardInt(const FString& Key, int32 DefaultVa
 	return DefaultValue;
 }
 
-float UGWBWildcardValueCache::GetWildcardFloat(const FString& Key, float DefaultValue)
+float UGWBWildcardValueCache::GetWildcardFloat(const int32 Key, float DefaultValue)
 {
 	FScopeLock Lock(&CacheLock);
 	if (float* FoundValue = FloatCache.Find(Key))
@@ -102,17 +102,20 @@ float UGWBWildcardValueCache::GetWildcardFloat(const FString& Key, float Default
 	return DefaultValue;
 }
 
-FString UGWBWildcardValueCache::GetWildcardString(const FString& Key, const FString& DefaultValue)
+UE_DISABLE_OPTIMIZATION
+FString UGWBWildcardValueCache::GetWildcardString(const int32 Key, const FString& DefaultValue)
 {
 	FScopeLock Lock(&CacheLock);
-	if (FString* FoundValue = StringCache.Find(Key))
+	auto Cache = StringCache;
+	if (FString* FoundValue = Cache.Find(Key))
 	{
 		return *FoundValue;
 	}
 	return DefaultValue;
 }
+UE_ENABLE_OPTIMIZATION
 
-bool UGWBWildcardValueCache::GetWildcardBool(const FString& Key, bool DefaultValue)
+bool UGWBWildcardValueCache::GetWildcardBool(const int32 Key, bool DefaultValue)
 {
 	FScopeLock Lock(&CacheLock);
 	if (bool* FoundValue = BoolCache.Find(Key))
@@ -122,7 +125,7 @@ bool UGWBWildcardValueCache::GetWildcardBool(const FString& Key, bool DefaultVal
 	return DefaultValue;
 }
 
-UObject* UGWBWildcardValueCache::GetWildcardObject(const FString& Key, UObject* DefaultValue)
+UObject* UGWBWildcardValueCache::GetWildcardObject(const int32 Key, UObject* DefaultValue)
 {
 	FScopeLock Lock(&CacheLock);
 	if (TWeakObjectPtr<UObject>* FoundValue = ObjectCache.Find(Key))
@@ -132,7 +135,7 @@ UObject* UGWBWildcardValueCache::GetWildcardObject(const FString& Key, UObject* 
 	return DefaultValue;
 }
 
-FVector UGWBWildcardValueCache::GetWildcardVector(const FString& Key)
+FVector UGWBWildcardValueCache::GetWildcardVector(const int32 Key)
 {
 	FScopeLock Lock(&CacheLock);
 	if (FVector* FoundValue = VectorCache.Find(Key))
@@ -142,7 +145,7 @@ FVector UGWBWildcardValueCache::GetWildcardVector(const FString& Key)
 	return FVector::ZeroVector;
 }
 
-FRotator UGWBWildcardValueCache::GetWildcardRotator(const FString& Key)
+FRotator UGWBWildcardValueCache::GetWildcardRotator(const int32 Key)
 {
 	FScopeLock Lock(&CacheLock);
 	if (FRotator* FoundValue = RotatorCache.Find(Key))
@@ -152,7 +155,7 @@ FRotator UGWBWildcardValueCache::GetWildcardRotator(const FString& Key)
 	return FRotator::ZeroRotator;
 }
 
-FTransform UGWBWildcardValueCache::GetWildcardTransform(const FString& Key)
+FTransform UGWBWildcardValueCache::GetWildcardTransform(const int32 Key)
 {
 	FScopeLock Lock(&CacheLock);
 	if (FTransform* FoundValue = TransformCache.Find(Key))
@@ -217,7 +220,7 @@ void UGWBWildcardValueCache::ClearAllWildcardCaches()
 	TransformCache.Empty();
 }
 
-bool UGWBWildcardValueCache::HasWildcardKey(const FString& Key, const FName& ValueType)
+bool UGWBWildcardValueCache::HasWildcardKey(const int32 Key, const FName& ValueType)
 {
 	FScopeLock Lock(&CacheLock);
 	

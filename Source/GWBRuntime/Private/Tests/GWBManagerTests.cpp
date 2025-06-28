@@ -43,7 +43,7 @@ void FGWBManagerTests::Define()
 			FScopedCVarOverrideBool CvarEnabled(TEXT("gwb.enabled"), false);
 			bool bCallbackFired = false;
 			auto Handle = Manager->ScheduleWork( WorkGroupID, { 0, 0, 0, false, false});
-			Handle.OnHandleWork([&bCallbackFired](const float DeltaTime)
+			Handle.OnHandleWork([&bCallbackFired](const float DeltaTime, const FGWBWorkUnitHandle& Handle)
 			{
 				bCallbackFired = true;
 			});
@@ -56,7 +56,7 @@ void FGWBManagerTests::Define()
 			FScopedCVarOverrideBool CvarEnabled(TEXT("gwb.enabled"), true);
 			bool bCallbackFired = false;
 			auto Handle = Manager->ScheduleWork( WorkGroupID, { 0, 0, 0, false, false});
-			Handle.OnHandleWork([&bCallbackFired](const float DeltaTime)
+			Handle.OnHandleWork([&bCallbackFired](const float DeltaTime, const FGWBWorkUnitHandle& Handle)
 			{
 				bCallbackFired = true;
 			});
@@ -75,7 +75,7 @@ void FGWBManagerTests::Define()
 			FScopedCVarOverrideFloat CvarFrameBudget(TEXT("gwb.budget.frame"), -1);
 			bool bCallbackFired = false;
 			auto Handle = Manager->ScheduleWork( WorkGroupID, { 0, 0, 0, false, false});
-			Handle.OnHandleWork([&bCallbackFired](const float DeltaTime)
+			Handle.OnHandleWork([&bCallbackFired](const float DeltaTime, const FGWBWorkUnitHandle& Handle)
 			{
 				bCallbackFired = true;
 			});
@@ -89,7 +89,7 @@ void FGWBManagerTests::Define()
 			FScopedCVarOverrideFloat CvarFrameBudget(TEXT("gwb.budget.frame"), 0);
 			bool bCallbackFired = false;
 			auto Handle = Manager->ScheduleWork( WorkGroupID, { 0, 0, 0, false, false});
-			Handle.OnHandleWork([&bCallbackFired](const float DeltaTime)
+			Handle.OnHandleWork([&bCallbackFired](const float DeltaTime, const FGWBWorkUnitHandle& Handle)
 			{
 				bCallbackFired = true;
 			});
@@ -103,7 +103,7 @@ void FGWBManagerTests::Define()
 			FScopedCVarOverrideFloat CvarFrameBudget(TEXT("gwb.budget.frame"), 0.1f);
 			bool bCallbackFired = false;
 			auto Handle = Manager->ScheduleWork( WorkGroupID, { 0, 0, 0, false, false});
-			Handle.OnHandleWork([&bCallbackFired](const float DeltaTime)
+			Handle.OnHandleWork([&bCallbackFired](const float DeltaTime, const FGWBWorkUnitHandle& Handle)
 			{
 				bCallbackFired = true;
 			});
@@ -117,12 +117,12 @@ void FGWBManagerTests::Define()
 			FScopedCVarOverrideFloat CvarFrameBudget(TEXT("gwb.budget.frame"), 0.1f);
 			bool bCallbackFired = false;
 			bool bCallback2Fired = false;
-			Manager->ScheduleWork( WorkGroupID, { 0, 0, 0, false, false}).OnHandleWork([&bCallbackFired](const float DeltaTime)
+			Manager->ScheduleWork( WorkGroupID, { 0, 0, 0, false, false}).OnHandleWork([&bCallbackFired](const float DeltaTime, const FGWBWorkUnitHandle& Handle)
 			{
 				FPlatformProcess::Sleep(0.1);
 				bCallbackFired = true;
 			});
-			Manager->ScheduleWork( WorkGroupID, { 0, 0, 0, false, false}).OnHandleWork([&bCallback2Fired](const float DeltaTime)
+			Manager->ScheduleWork( WorkGroupID, { 0, 0, 0, false, false}).OnHandleWork([&bCallback2Fired](const float DeltaTime, const FGWBWorkUnitHandle& Handle)
 			{
 				FPlatformProcess::Sleep(0.1);
 				bCallback2Fired = true;
@@ -138,12 +138,12 @@ void FGWBManagerTests::Define()
 			FScopedCVarOverrideFloat CvarFrameBudget(TEXT("gwb.budget.frame"), 0.1f);
 			bool bCallbackFired = false;
 			bool bCallback2Fired = false;
-			Manager->ScheduleWork( WorkGroupID, { 0, 0, 0, false, false}).OnHandleWork([&bCallbackFired](const float DeltaTime)
+			Manager->ScheduleWork( WorkGroupID, { 0, 0, 0, false, false}).OnHandleWork([&bCallbackFired](const float DeltaTime, const FGWBWorkUnitHandle& Handle)
 			{
 				FPlatformProcess::Sleep(0.1);
 				bCallbackFired = true;
 			});
-			Manager->ScheduleWork( WorkGroupID, { 0, 0, 0, false, false}).OnHandleWork([&bCallback2Fired](const float DeltaTime)
+			Manager->ScheduleWork( WorkGroupID, { 0, 0, 0, false, false}).OnHandleWork([&bCallback2Fired](const float DeltaTime, const FGWBWorkUnitHandle& Handle)
 			{
 				FPlatformProcess::Sleep(0.1);
 				bCallback2Fired = true;
@@ -162,13 +162,13 @@ void FGWBManagerTests::Define()
 		{
 			FScopedCVarOverrideFloat CvarFrameBudget(TEXT("gwb.budget.frame"), 0.1f);
 			bool bCallbackLastFired = false;
-			Manager->ScheduleWork( WorkGroupID, { 1, 0, 0, false, false}).OnHandleWork([&bCallbackLastFired](const float DeltaTime)
+			Manager->ScheduleWork( WorkGroupID, { 1, 0, 0, false, false}).OnHandleWork([&bCallbackLastFired](const float DeltaTime, const FGWBWorkUnitHandle& Handle)
 			{
 				FPlatformProcess::Sleep(0.1);
 				bCallbackLastFired = true;
 			});
 			bool bCallbackFirstFired = false;
-			Manager->ScheduleWork( WorkGroupID, { 0, 0, 0, false, false}).OnHandleWork([&bCallbackFirstFired](const float DeltaTime)
+			Manager->ScheduleWork( WorkGroupID, { 0, 0, 0, false, false}).OnHandleWork([&bCallbackFirstFired](const float DeltaTime, const FGWBWorkUnitHandle& Handle)
 			{
 				FPlatformProcess::Sleep(0.1);
 				bCallbackFirstFired = true;
@@ -213,12 +213,12 @@ void FGWBManagerTests::Define()
 			const FName WorkGroupA = FName("WorkGroupA");
 			const FName WorkGroupB = FName("WorkGroupB");
 			FScopedCVarOverrideFloat CvarFrameBudget(TEXT("gwb.budget.frame"), 0.5f);
-			Manager->ScheduleWork( WorkGroupA, FGWBWorkOptions::EmptyOptions).OnHandleWork([](const float DeltaTime){ FPlatformProcess::Sleep(0.1); });
-			Manager->ScheduleWork( WorkGroupA, FGWBWorkOptions::EmptyOptions).OnHandleWork([](const float DeltaTime){ FPlatformProcess::Sleep(0.1); });
-			Manager->ScheduleWork( WorkGroupA, FGWBWorkOptions::EmptyOptions).OnHandleWork([](const float DeltaTime){ FPlatformProcess::Sleep(0.1); });
-			Manager->ScheduleWork( WorkGroupB, FGWBWorkOptions::EmptyOptions).OnHandleWork([](const float DeltaTime){ FPlatformProcess::Sleep(0.1); });
-			Manager->ScheduleWork( WorkGroupB, FGWBWorkOptions::EmptyOptions).OnHandleWork([](const float DeltaTime){ FPlatformProcess::Sleep(0.1); });
-			Manager->ScheduleWork( WorkGroupB, FGWBWorkOptions::EmptyOptions).OnHandleWork([](const float DeltaTime){ FPlatformProcess::Sleep(0.1); });
+			Manager->ScheduleWork( WorkGroupA, FGWBWorkOptions::EmptyOptions).OnHandleWork([](const float DeltaTime, const FGWBWorkUnitHandle& Handle){ FPlatformProcess::Sleep(0.1); });
+			Manager->ScheduleWork( WorkGroupA, FGWBWorkOptions::EmptyOptions).OnHandleWork([](const float DeltaTime, const FGWBWorkUnitHandle& Handle){ FPlatformProcess::Sleep(0.1); });
+			Manager->ScheduleWork( WorkGroupA, FGWBWorkOptions::EmptyOptions).OnHandleWork([](const float DeltaTime, const FGWBWorkUnitHandle& Handle){ FPlatformProcess::Sleep(0.1); });
+			Manager->ScheduleWork( WorkGroupB, FGWBWorkOptions::EmptyOptions).OnHandleWork([](const float DeltaTime, const FGWBWorkUnitHandle& Handle){ FPlatformProcess::Sleep(0.1); });
+			Manager->ScheduleWork( WorkGroupB, FGWBWorkOptions::EmptyOptions).OnHandleWork([](const float DeltaTime, const FGWBWorkUnitHandle& Handle){ FPlatformProcess::Sleep(0.1); });
+			Manager->ScheduleWork( WorkGroupB, FGWBWorkOptions::EmptyOptions).OnHandleWork([](const float DeltaTime, const FGWBWorkUnitHandle& Handle){ FPlatformProcess::Sleep(0.1); });
 			TestTrue("# of scheduled work units is 6", Manager->TEST_GetWorkUnitCount() == 6);
 			Manager->DoWork();
 			TestTrue("# of scheduled work units is 4", Manager->TEST_GetWorkUnitCount() == 4);
@@ -235,15 +235,15 @@ void FGWBManagerTests::Define()
 			const FName WorkGroupA = FName("WorkGroupA");
 			const FName WorkGroupB = FName("WorkGroupB");
 			FScopedCVarOverrideFloat CvarFrameBudget(TEXT("gwb.budget.frame"), 0.5f);
-			Manager->ScheduleWork( WorkGroupA, FGWBWorkOptions::EmptyOptions).OnHandleWork([](const float DeltaTime){ FPlatformProcess::Sleep(0.f); });
-			Manager->ScheduleWork( WorkGroupA, FGWBWorkOptions::EmptyOptions).OnHandleWork([](const float DeltaTime){ FPlatformProcess::Sleep(0.f); });
-			Manager->ScheduleWork( WorkGroupA, FGWBWorkOptions::EmptyOptions).OnHandleWork([](const float DeltaTime){ FPlatformProcess::Sleep(0.f); });
-			Manager->ScheduleWork( WorkGroupA, FGWBWorkOptions::EmptyOptions).OnHandleWork([](const float DeltaTime){ FPlatformProcess::Sleep(0.f); });
-			Manager->ScheduleWork( WorkGroupA, FGWBWorkOptions::EmptyOptions).OnHandleWork([](const float DeltaTime){ FPlatformProcess::Sleep(0.f); });
-			Manager->ScheduleWork( WorkGroupA, FGWBWorkOptions::EmptyOptions).OnHandleWork([](const float DeltaTime){ FPlatformProcess::Sleep(0.f); });
-			Manager->ScheduleWork( WorkGroupB, FGWBWorkOptions::EmptyOptions).OnHandleWork([](const float DeltaTime){ FPlatformProcess::Sleep(0.f); });
-			Manager->ScheduleWork( WorkGroupB, FGWBWorkOptions::EmptyOptions).OnHandleWork([](const float DeltaTime){ FPlatformProcess::Sleep(0.f); });
-			Manager->ScheduleWork( WorkGroupB, FGWBWorkOptions::EmptyOptions).OnHandleWork([](const float DeltaTime){ FPlatformProcess::Sleep(0.f); });
+			Manager->ScheduleWork( WorkGroupA, FGWBWorkOptions::EmptyOptions).OnHandleWork([](const float DeltaTime, const FGWBWorkUnitHandle& Handle){ FPlatformProcess::Sleep(0.f); });
+			Manager->ScheduleWork( WorkGroupA, FGWBWorkOptions::EmptyOptions).OnHandleWork([](const float DeltaTime, const FGWBWorkUnitHandle& Handle){ FPlatformProcess::Sleep(0.f); });
+			Manager->ScheduleWork( WorkGroupA, FGWBWorkOptions::EmptyOptions).OnHandleWork([](const float DeltaTime, const FGWBWorkUnitHandle& Handle){ FPlatformProcess::Sleep(0.f); });
+			Manager->ScheduleWork( WorkGroupA, FGWBWorkOptions::EmptyOptions).OnHandleWork([](const float DeltaTime, const FGWBWorkUnitHandle& Handle){ FPlatformProcess::Sleep(0.f); });
+			Manager->ScheduleWork( WorkGroupA, FGWBWorkOptions::EmptyOptions).OnHandleWork([](const float DeltaTime, const FGWBWorkUnitHandle& Handle){ FPlatformProcess::Sleep(0.f); });
+			Manager->ScheduleWork( WorkGroupA, FGWBWorkOptions::EmptyOptions).OnHandleWork([](const float DeltaTime, const FGWBWorkUnitHandle& Handle){ FPlatformProcess::Sleep(0.f); });
+			Manager->ScheduleWork( WorkGroupB, FGWBWorkOptions::EmptyOptions).OnHandleWork([](const float DeltaTime, const FGWBWorkUnitHandle& Handle){ FPlatformProcess::Sleep(0.f); });
+			Manager->ScheduleWork( WorkGroupB, FGWBWorkOptions::EmptyOptions).OnHandleWork([](const float DeltaTime, const FGWBWorkUnitHandle& Handle){ FPlatformProcess::Sleep(0.f); });
+			Manager->ScheduleWork( WorkGroupB, FGWBWorkOptions::EmptyOptions).OnHandleWork([](const float DeltaTime, const FGWBWorkUnitHandle& Handle){ FPlatformProcess::Sleep(0.f); });
 			TestTrue("# of scheduled work units is 9", Manager->TEST_GetWorkUnitCount() == 9);
 			Manager->DoWork();
 			TestTrue("# of scheduled work units is 3", Manager->TEST_GetWorkUnitCount() == 3);
@@ -261,7 +261,7 @@ void FGWBManagerTests::Define()
 		{
 			bool bCallbackFired = false;
 			auto Handle = Manager->ScheduleWork( WorkGroupID, { 0, 0, 0, false, false});
-			Handle.OnHandleWork([&bCallbackFired](const float DeltaTime)
+			Handle.OnHandleWork([&bCallbackFired](const float DeltaTime, const FGWBWorkUnitHandle& Handle)
 			{
 				bCallbackFired = true;
 			});

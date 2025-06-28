@@ -4,8 +4,6 @@
 #include "GWBWorkUnit.h"
 #include "GWBWorkUnitHandle.generated.h"
 
-DECLARE_DYNAMIC_DELEGATE_OneParam(FGWBBlueprintWorkDelegate, float, DeltaTime);
-
 /**
  * Returned by the `GWBManager` when you schedule work, this handle allows you to provide the callback for the code you
  * want balanced across frames via either `OnHandleWork([](){..}) or via the delegate in `GetWorkCallback()`.
@@ -30,7 +28,7 @@ struct GWBRUNTIME_API FGWBWorkUnitHandle
 	}
 
 	/** Provide the function that will do work when there is room in the budget. */
-	void OnHandleWork(TFunction<void(const float DeltaTime)> DispatchOnDoWork) const;
+	void OnHandleWork(TFunction<void(const float DeltaTime, const FGWBWorkUnitHandle& Handle)> DispatchOnDoWork) const;
 
 	/** Get the delegate that will broadcast when there is room in the budget to do some work. */
 	FORCEINLINE FGWBOnDoWorkDelegate& GetWorkCallback() const { return WorkUnitCallbackHandle.Get()->WorkCallback; }

@@ -26,6 +26,11 @@
 			"LoadingPhase": "Default"
 		},
 		{
+			"Name": "GWBCustomNodesRuntime",
+			"Type": "Runtime",
+			"LoadingPhase": "Default"
+		},
+		{
 			"Name": "GWBEditor",
 			"Type": "Editor",
 			"LoadingPhase": "Default"

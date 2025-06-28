@@ -15,6 +15,7 @@
 #include "GWBManager.generated.h"
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FGWBOnBeforeDoWorkDelegate, float, DeltaTime);
+DECLARE_DYNAMIC_DELEGATE_TwoParams(FGWBBlueprintWorkDelegate, float, DeltaTime, const FGWBWorkUnitHandle&, Handle);
 
 /**
  * Manages the work loop, tracks budgets, and fires off the work delegates when work needs to be done.

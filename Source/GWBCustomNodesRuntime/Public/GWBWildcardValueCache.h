@@ -1,13 +1,14 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "DataTypes/GWBWorkUnitHandle.h"
 #include "Kismet/BlueprintFunctionLibrary.h"
 #include "Engine/Engine.h"
 #include "GWBWildcardValueCache.generated.h"
 
 
 UCLASS()
-class GWBEDITOR_API UGWBWildcardValueCache : public UBlueprintFunctionLibrary
+class GWBCUSTOMNODESRUNTIME_API UGWBWildcardValueCache : public UBlueprintFunctionLibrary
 {
 	GENERATED_BODY()
 	
@@ -34,53 +35,53 @@ class GWBEDITOR_API UGWBWildcardValueCache : public UBlueprintFunctionLibrary
 public:
 	// Set functions for different value types
 	UFUNCTION(BlueprintCallable, Category = "GWB|Wildcard Cache", meta = (CallInEditor = "true"))
-	static void SetWildcardInt(const FString& Key, int32 Value);
+	static void SetWildcardInt(const int32 Key, int32 Value);
 
 	UFUNCTION(BlueprintCallable, Category = "GWB|Wildcard Cache", meta = (CallInEditor = "true"))
-	static void SetWildcardFloat(const FString& Key, float Value);
+	static void SetWildcardFloat(const int32 Key, float Value);
 
 	UFUNCTION(BlueprintCallable, Category = "GWB|Wildcard Cache", meta = (CallInEditor = "true"))
-	static void SetWildcardString(const FString& Key, const FString& Value);
+	static void SetWildcardString(const int32 Key, const FString& Value);
 
 	UFUNCTION(BlueprintCallable, Category = "GWB|Wildcard Cache", meta = (CallInEditor = "true"))
-	static void SetWildcardBool(const FString& Key, bool Value);
+	static void SetWildcardBool(const int32 Key, bool Value);
 
 	UFUNCTION(BlueprintCallable, Category = "GWB|Wildcard Cache", meta = (CallInEditor = "true"))
-	static void SetWildcardObject(const FString& Key, UObject* Value);
+	static void SetWildcardObject(const int32 Key, UObject* Value);
 
 	UFUNCTION(BlueprintCallable, Category = "GWB|Wildcard Cache", meta = (CallInEditor = "true"))
-	static void SetWildcardVector(const FString& Key, const FVector& Value);
+	static void SetWildcardVector(const int32 Key, const FVector& Value);
 
 	UFUNCTION(BlueprintCallable, Category = "GWB|Wildcard Cache", meta = (CallInEditor = "true"))
-	static void SetWildcardRotator(const FString& Key, const FRotator& Value);
+	static void SetWildcardRotator(const int32 Key, const FRotator& Value);
 
 	UFUNCTION(BlueprintCallable, Category = "GWB|Wildcard Cache", meta = (CallInEditor = "true"))
-	static void SetWildcardTransform(const FString& Key, const FTransform& Value);
+	static void SetWildcardTransform(const int32 Key, const FTransform& Value);
 
 	// Get functions for different value types
 	UFUNCTION(BlueprintCallable, Category = "GWB|Wildcard Cache", meta = (CallInEditor = "true"))
-	static int32 GetWildcardInt(const FString& Key, int32 DefaultValue = 0);
+	static int32 GetWildcardInt(const int32 Key, int32 DefaultValue = 0);
 
 	UFUNCTION(BlueprintCallable, Category = "GWB|Wildcard Cache", meta = (CallInEditor = "true"))
-	static float GetWildcardFloat(const FString& Key, float DefaultValue = 0.0f);
+	static float GetWildcardFloat(const int32 Key, float DefaultValue = 0.0f);
 
 	UFUNCTION(BlueprintCallable, Category = "GWB|Wildcard Cache", meta = (CallInEditor = "true"))
-	static FString GetWildcardString(const FString& Key, const FString& DefaultValue = TEXT(""));
+	static FString GetWildcardString(const int32 Key, const FString& DefaultValue = TEXT(""));
 
 	UFUNCTION(BlueprintCallable, Category = "GWB|Wildcard Cache", meta = (CallInEditor = "true"))
-	static bool GetWildcardBool(const FString& Key, bool DefaultValue = false);
+	static bool GetWildcardBool(const int32 Key, bool DefaultValue = false);
 
 	UFUNCTION(BlueprintCallable, Category = "GWB|Wildcard Cache", meta = (CallInEditor = "true"))
-	static UObject* GetWildcardObject(const FString& Key, UObject* DefaultValue = nullptr);
+	static UObject* GetWildcardObject(const int32 Key, UObject* DefaultValue = nullptr);
 
 	UFUNCTION(BlueprintCallable, Category = "GWB|Wildcard Cache", meta = (CallInEditor = "true"))
-	static FVector GetWildcardVector(const FString& Key);
+	static FVector GetWildcardVector(const int32 Key);
 
 	UFUNCTION(BlueprintCallable, Category = "GWB|Wildcard Cache", meta = (CallInEditor = "true"))
-	static FRotator GetWildcardRotator(const FString& Key);
+	static FRotator GetWildcardRotator(const int32 Key);
 
 	UFUNCTION(BlueprintCallable, Category = "GWB|Wildcard Cache", meta = (CallInEditor = "true"))
-	static FTransform GetWildcardTransform(const FString& Key);
+	static FTransform GetWildcardTransform(const int32 Key);
 
 	// Utility functions
 	UFUNCTION(BlueprintCallable, Category = "GWB|Wildcard Cache", meta = (CallInEditor = "true"))
@@ -90,7 +91,7 @@ public:
 	static void ClearAllWildcardCaches();
 
 	UFUNCTION(BlueprintCallable, Category = "GWB|Wildcard Cache", meta = (CallInEditor = "true"))
-	static bool HasWildcardKey(const FString& Key, const FName& ValueType);
+	static bool HasWildcardKey(const int32 Key, const FName& ValueType);
 
 	// Function name retrieval methods
 	UFUNCTION(BlueprintCallable, Category = "GWB|Wildcard Cache", meta = (CallInEditor = "true"))
@@ -99,16 +100,19 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "GWB|Wildcard Cache", meta = (CallInEditor = "true"))
 	static FString GetFindFunctionName(const FName& PinCategory, UObject* PinSubCategoryObject);
 
+	UFUNCTION(BlueprintPure, Category = "GWB|Wildcard Cache", meta = (CallInEditor = "true"))
+	static int32 GetWorkUnitHandleId(UPARAM(ref) const FGWBWorkUnitHandle& Handle) { return Handle.GetId(); }
+
 private:
 	// Static maps for each value type
-	static TMap<FString, int32> IntCache;
-	static TMap<FString, float> FloatCache;
-	static TMap<FString, FString> StringCache;
-	static TMap<FString, bool> BoolCache;
-	static TMap<FString, TWeakObjectPtr<UObject>> ObjectCache;
-	static TMap<FString, FVector> VectorCache;
-	static TMap<FString, FRotator> RotatorCache;
-	static TMap<FString, FTransform> TransformCache;
+	static TMap<int32, int32> IntCache;
+	static TMap<int32, float> FloatCache;
+	static TMap<int32, FString> StringCache;
+	static TMap<int32, bool> BoolCache;
+	static TMap<int32, TWeakObjectPtr<UObject>> ObjectCache;
+	static TMap<int32, FVector> VectorCache;
+	static TMap<int32, FRotator> RotatorCache;
+	static TMap<int32, FTransform> TransformCache;
 
 	// Critical section for thread safety
 	static FCriticalSection CacheLock;

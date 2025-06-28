@@ -10,8 +10,13 @@
 #include "K2Node_VariableSet.h"
 #include "K2Node_TemporaryVariable.h"
 #include "K2Node_CreateDelegate.h"
+#include "K2Node_Knot.h"
 #include "Kismet2/BlueprintEditorUtils.h"
 #include "KismetCompiler.h"
+#include "GWBWildcardValueCache.h"
+#include "K2Node_ExecutionSequence.h"
+#include "Kismet/BlueprintMapLibrary.h"
+#include "Kismet/KismetNodeHelperLibrary.h"
 
 #define LOCTEXT_NAMESPACE "K2Node_GWBScheduleWorkDirect"
 
@@ -24,6 +29,9 @@ const FName UK2Node_GWBScheduleWork::OnAbortedPinName(TEXT("OnAborted"));
 const FName UK2Node_GWBScheduleWork::ContextOutputPinName(TEXT("ContextOut"));
 const FName UK2Node_GWBScheduleWork::DeltaTimePinName(TEXT("DeltaTime"));
 const FName UK2Node_GWBScheduleWork::WorkHandlePinName(TEXT("WorkHandle"));
+
+// Static map to track which graphs already have our shared variable
+TMap<TWeakObjectPtr<UEdGraph>, FName> UK2Node_GWBScheduleWork::GraphSharedVariables;
 
 UK2Node_GWBScheduleWork::UK2Node_GWBScheduleWork()
 {
@@ -79,6 +87,9 @@ void UK2Node_GWBScheduleWork::AllocateDefaultPins()
 {
 	// Input execution pin
 	CreatePin(EGPD_Input, UEdGraphSchema_K2::PC_Exec, UEdGraphSchema_K2::PN_Execute);
+	
+	// Output execution pin
+	CreatePin(EGPD_Output, UEdGraphSchema_K2::PC_Exec, UEdGraphSchema_K2::PN_Then);
 
 	// Context input pin (wildcard)
 	UEdGraphPin* ContextInputPin = CreatePin(EGPD_Input, UEdGraphSchema_K2::PC_Wildcard, ContextInputPinName);
@@ -88,6 +99,7 @@ void UK2Node_GWBScheduleWork::AllocateDefaultPins()
 	UEdGraphPin* WorkGroupPin = CreatePin(EGPD_Input, UEdGraphSchema_K2::PC_Name, WorkGroupPinName);
 	WorkGroupPin->PinFriendlyName = LOCTEXT("WorkGroupPinFriendlyName", "Work Group");
 	WorkGroupPin->DefaultValue = TEXT("Default");
+	WorkGroupPin->PinType.PinSubCategory = FName(TEXT("GameplayWorkCategory"));
 
 	// Work options input pin
 	UEdGraphPin* WorkOptionsPin = CreatePin(EGPD_Input, UEdGraphSchema_K2::PC_Struct, 
@@ -264,13 +276,57 @@ FEdGraphPinType UK2Node_GWBScheduleWork::GetConnectedContextType() const
 	return WildcardType;
 }
 
+FName UK2Node_GWBScheduleWork::GetOrCreateSharedVariable(FKismetCompilerContext& CompilerContext, UEdGraph* SourceGraph,
+	FName ValueType)
+{
+	// Check if we already created the shared variable for this graph
+	if (FName* ExistingVar = GraphSharedVariables.Find(SourceGraph))
+	{
+		return *ExistingVar;
+	}
+        
+	// Create the shared variable for this graph
+	const FName UniqueVarName = *FString::Printf(TEXT("SharedMap_%s"), *FGuid::NewGuid().ToString());
+        
+	// Create a Blueprint variable in the owning Blueprint
+	if (UBlueprint* Blueprint = FBlueprintEditorUtils::FindBlueprintForGraph(SourceGraph))
+	{
+		// Create the variable property
+		FEdGraphPinType MapPinType;
+		MapPinType.PinCategory = ValueType;
+		// MapPinType.PinSubCategoryObject = TBaseStructure<TMap<int32, UObject*>>::Get();
+		MapPinType.ContainerType = EPinContainerType::Map;
+		MapPinType.PinValueType.TerminalCategory = UEdGraphSchema_K2::PC_Int; // Key type
+		MapPinType.PinValueType.TerminalSubCategory = ValueType; // Value type
+            
+		// Add variable to Blueprint
+		FBlueprintEditorUtils::AddMemberVariable(Blueprint, UniqueVarName, MapPinType);
+            
+		// Mark Blueprint as modified
+		FBlueprintEditorUtils::MarkBlueprintAsStructurallyModified(Blueprint);
+		
+		// Force reconstruction of all nodes to recognize the new variable
+		FBlueprintEditorUtils::ReconstructAllNodes(Blueprint);
+		
+		// Refresh the Blueprint's variable list
+		FBlueprintEditorUtils::RefreshAllNodes(Blueprint);
+	}
+        
+	// Cache the variable name for this graph
+	GraphSharedVariables.Add(SourceGraph, UniqueVarName);
+        
+	return UniqueVarName;
+}
+
 UE_DISABLE_OPTIMIZATION
+
 void UK2Node_GWBScheduleWork::ExpandNode(class FKismetCompilerContext& CompilerContext, UEdGraph* SourceGraph)
 {
 	Super::ExpandNode(CompilerContext, SourceGraph);
 	
 	// INPUT pins
 	UEdGraphPin* ExecInputPin = GetExecPin();
+	UEdGraphPin* ThenOutPin = GetThenPin();
 	UEdGraphPin* ContextInputPin = GetContextInputPin();
 	UEdGraphPin* WorkGroupPin = FindPin(WorkGroupPinName, EGPD_Input);
 	UEdGraphPin* WorkOptionsPin = FindPin(WorkOptionsPinName, EGPD_Input);
@@ -295,35 +351,12 @@ void UK2Node_GWBScheduleWork::ExpandNode(class FKismetCompilerContext& CompilerC
 	// 1. Setup context storage (if needed)
 	FEdGraphPinType ContextType = GetConnectedContextType();
 	bool bHasValidContext = ContextType.PinCategory != UEdGraphSchema_K2::PC_Wildcard;
-	
-	UK2Node_TemporaryVariable* ContextTempVar = nullptr;
-	UK2Node_AssignmentStatement* SetContextTempVarNode = nullptr;
-	UK2Node_VariableGet* GetContextNode = nullptr;
-	
-	if (bHasValidContext)
-	{
-		// Create temporary variable for context storage
-		ContextTempVar = CompilerContext.SpawnIntermediateNode<UK2Node_TemporaryVariable>(this, SourceGraph);
-		ContextTempVar->VariableType = ContextType;
-		ContextTempVar->AllocateDefaultPins();
-		
-		// Create assignment to store context before scheduling work
-		SetContextTempVarNode = CompilerContext.SpawnIntermediateNode<UK2Node_AssignmentStatement>(this, SourceGraph);
-		SetContextTempVarNode->AllocateDefaultPins();
-		
-		// connect context input to our temp context var setter
-		UEdGraphPin* AssignTargetPin = SetContextTempVarNode->GetVariablePin();
-		UEdGraphPin* AssignValuePin = SetContextTempVarNode->GetValuePin();
-		UEdGraphPin* TempVarPin = ContextTempVar->GetVariablePin();
-		TempVarPin->MakeLinkTo(AssignTargetPin);
-		CompilerContext.MovePinLinksToIntermediate(*ContextInputPin, *AssignValuePin);
 
-		// reconstruct to make wildcard pins specific
-		SetContextTempVarNode->ReconstructNode();
-
-		// connect our temp var to the context output
-		CompilerContext.MovePinLinksToIntermediate(*ContextOutputPin, *TempVarPin);
-	}
+	// connect the ExecIn to a knot we can use later to re-route based on if this node has a context var or not 
+	UK2Node_Knot* ExecInRedirectorNode = CompilerContext.SpawnIntermediateNode<UK2Node_Knot>(this, SourceGraph);
+	ExecInRedirectorNode->AllocateDefaultPins();
+	CompilerContext.MovePinLinksToIntermediate(*ExecInputPin, *ExecInRedirectorNode->GetInputPin());
+	UEdGraphPin* NextThenPin = ExecInRedirectorNode->GetOutputPin();
 	
 	// 2. Create ScheduleWork call
 	UK2Node_CallFunction* ScheduleWorkNode = CompilerContext.SpawnIntermediateNode<UK2Node_CallFunction>(this, SourceGraph);
@@ -334,7 +367,7 @@ void UK2Node_GWBScheduleWork::ExpandNode(class FKismetCompilerContext& CompilerC
 	// Connect ScheduleWork inputs
 	if (UEdGraphPin* WorldContextPin = ScheduleWorkNode->FindPinChecked(TEXT("WorldContextObject")))
 	{
-		WorldContextPin->DefaultValue = TEXT("None"); // Will be resolved at runtime
+		ScheduleWorkNode->FindPinChecked(TEXT("WorldContextObject"))->DefaultValue = TEXT("None"); // Will be resolved at runtime
 	}
 	if (UEdGraphPin* WorkGroupIdPin = ScheduleWorkNode->FindPinChecked(TEXT("WorkGroupId")))
 	{
@@ -362,6 +395,13 @@ void UK2Node_GWBScheduleWork::ExpandNode(class FKismetCompilerContext& CompilerC
 	DeltaTimePinType.PinSubCategory = UEdGraphSchema_K2::PC_Float;
 	UEdGraphPin* EventDeltaTimePin = CompletionEvent->CreateUserDefinedPin(DeltaTimePinName, DeltaTimePinType, EGPD_Output);
 	EventDeltaTimePin->PinFriendlyName = LOCTEXT("EventDeltaTimePinFriendlyName", "Delta Time");
+
+	// Add WorkUnitHandle param to the custom event
+	FEdGraphPinType WorkUnitHandlePinType;
+	WorkUnitHandlePinType.PinCategory = UEdGraphSchema_K2::PC_Struct;
+	WorkUnitHandlePinType.bIsReference = true;
+	WorkUnitHandlePinType.PinSubCategoryObject = TBaseStructure<FGWBWorkUnitHandle>::Get();
+	CompletionEvent->CreateUserDefinedPin(WorkHandlePinName, WorkUnitHandlePinType, EGPD_Output);
 	
 	CompletionEvent->ReconstructNode();
 	
@@ -371,51 +411,100 @@ void UK2Node_GWBScheduleWork::ExpandNode(class FKismetCompilerContext& CompilerC
 	CreateDelegateNode->SelectedFunctionGuid = CompletionEvent->NodeGuid;
 	CreateDelegateNode->AllocateDefaultPins();
 	
-	// 7. Wire execution flow: Exec -> [StoreContext] -> ScheduleWork -> BindCallback
-	if (SetContextTempVarNode)
-	{
-		CompilerContext.MovePinLinksToIntermediate(*ExecInputPin, *(SetContextTempVarNode->GetExecPin()));
-		SetContextTempVarNode->GetThenPin()->MakeLinkTo(ScheduleWorkNode->GetExecPin());
-	}
-	else
-	{
-		CompilerContext.MovePinLinksToIntermediate(*ExecInputPin, *(ScheduleWorkNode->GetExecPin()));
-	}
-	
+	// 7. Wire execution flow: Exec -> [StoreContext] -> ScheduleWork -> BindCallback -> Then
+	NextThenPin->MakeLinkTo(ScheduleWorkNode->GetExecPin());
 	ScheduleWorkNode->GetThenPin()->MakeLinkTo(BindCallbackNode->GetExecPin());
+	CompilerContext.MovePinLinksToIntermediate(*ThenOutPin, *(BindCallbackNode->GetThenPin()));
 	
 	// 8. Wire data connections
+	// bind the handle coming out of the schedule work node to the BindCallback and this node's WorkHandle output
 	UEdGraphPin* ScheduleWorkReturnPin = ScheduleWorkNode->GetReturnValuePin();
-	if (ScheduleWorkReturnPin)
-	{
-		// Connect work handle to BindCallback and our output
-		if (UEdGraphPin* BindHandlePin = BindCallbackNode->FindPin(TEXT("Handle")))
-		{
-			ScheduleWorkReturnPin->MakeLinkTo(BindHandlePin);
-		}
-		CompilerContext.MovePinLinksToIntermediate(*WorkHandlePin, *ScheduleWorkReturnPin);
-	}
+	UEdGraphPin* BindCallbackHandleInputPin = BindCallbackNode->FindPin(TEXT("Handle"));
+	ScheduleWorkReturnPin->MakeLinkTo(BindCallbackHandleInputPin);
+	CompilerContext.MovePinLinksToIntermediate(*WorkHandlePin, *ScheduleWorkReturnPin);
 	
 	// Connect delegate to BindCallback
-	if (UEdGraphPin* OnDoWorkPin = BindCallbackNode->FindPin(TEXT("OnDoWork")))
-	{
-		if (UEdGraphPin* DelegateOutputPin = CreateDelegateNode->GetDelegateOutPin())
-		{
-			DelegateOutputPin->MakeLinkTo(OnDoWorkPin);
-		}
-	}
-	
-	// 9. Wire completion event to our output pins
-	if (UEdGraphPin* EventExecPin = CompletionEvent->FindPin(UEdGraphSchema_K2::PN_Then, EGPD_Output))
-	{
-		CompilerContext.MovePinLinksToIntermediate(*OnCompletedPin, *EventExecPin);
-	}
-	
-	if (UEdGraphPin* EventDeltaTimePinOnEvent = CompletionEvent->FindPin(DeltaTimePinName, EGPD_Output))
-	{
-		CompilerContext.MovePinLinksToIntermediate(*DeltaTimePin, *EventDeltaTimePinOnEvent);
-	}
+	UEdGraphPin* OnDoWorkPin = BindCallbackNode->FindPin(TEXT("OnDoWork"));
+	UEdGraphPin* DelegateOutputPin = CreateDelegateNode->GetDelegateOutPin();
+	DelegateOutputPin->MakeLinkTo(OnDoWorkPin);
+		
+	// 9. Wire completion custom event to our output pins
+	UEdGraphPin* EventThenPin = CompletionEvent->FindPin(UEdGraphSchema_K2::PN_Then, EGPD_Output);
+	UEdGraphPin* EventDeltaTimePinOut = CompletionEvent->FindPin(DeltaTimePinName, EGPD_Output);
+	UEdGraphPin* EventWorkHandlePinOut = CompletionEvent->FindPin(WorkHandlePinName, EGPD_Output);
+	CompilerContext.MovePinLinksToIntermediate(*OnCompletedPin, *EventThenPin);
+	CompilerContext.MovePinLinksToIntermediate(*DeltaTimePin, *EventDeltaTimePinOut);
 
+	if (bHasValidContext)
+	{
+		// Get the ID of the work handle pin coming out of our schedule work node
+		UK2Node_CallFunction* GetWorkUnitHandleIdNode = CompilerContext.SpawnIntermediateNode<UK2Node_CallFunction>(this, SourceGraph);
+		GetWorkUnitHandleIdNode->FunctionReference.SetExternalMember(FName("GetWorkUnitHandleId"), UGWBWildcardValueCache::StaticClass());
+		GetWorkUnitHandleIdNode->bDefaultsToPureFunc = true;
+		GetWorkUnitHandleIdNode->AllocateDefaultPins();
+		UEdGraphPin* GetWorkUnitHandleIdInputPin = GetWorkUnitHandleIdNode->FindPin(TEXT("Handle"));
+		UEdGraphPin* WorkUnitHandleReturnedIdPin = GetWorkUnitHandleIdNode->FindPin(TEXT("ReturnValue"));
+		ScheduleWorkReturnPin->MakeLinkTo(GetWorkUnitHandleIdInputPin);
+		
+		const auto FunctionName_Assign = UGWBWildcardValueCache::GetAssignFunctionName(ContextType.PinCategory, ContextType.PinSubCategoryObject.Get());
+		UK2Node_CallFunction* MapAddNode = CompilerContext.SpawnIntermediateNode<UK2Node_CallFunction>(this, SourceGraph);
+		MapAddNode->FunctionReference.SetExternalMember(FName(FunctionName_Assign), UGWBWildcardValueCache::StaticClass());
+		MapAddNode->AllocateDefaultPins();
+		UEdGraphPin* AddMapKeyExec = MapAddNode->GetExecPin();
+		UEdGraphPin* AddMapKeyPin = MapAddNode->FindPin(TEXT("Key"));
+		UEdGraphPin* AddMapValuePin = MapAddNode->FindPin(TEXT("Value"));
+		UEdGraphPin* AddMapKeyThen = MapAddNode->GetThenPin();
+
+		CompilerContext.MovePinLinksToIntermediate(*ContextInputPin, *AddMapValuePin);
+		WorkUnitHandleReturnedIdPin->MakeLinkTo(AddMapKeyPin); // AddMapKeyPin->DefaultValue = FString::FromInt(this->GetUniqueID()); // TODO: use WorkUnitHandle GetId for this
+
+		// inject the cache assignment between schedule and bind callback pins by rewiring:
+		CompilerContext.MovePinLinksToIntermediate(*BindCallbackNode->GetExecPin(), *AddMapKeyExec);
+		AddMapKeyThen->MakeLinkTo(BindCallbackNode->GetExecPin());
+
+		CompilerContext.MessageLog.Note(TEXT("Found ADD Pins @@, @@"), AddMapKeyPin, AddMapValuePin);
+	}
+	
+	// if we have a captured context value, rewire things a bot
+	if (bHasValidContext)
+	{
+		// Get the ID of the work handle pin coming out of our event node
+		UK2Node_CallFunction* GetWorkUnitHandleIdNode = CompilerContext.SpawnIntermediateNode<UK2Node_CallFunction>(this, SourceGraph);
+		GetWorkUnitHandleIdNode->FunctionReference.SetExternalMember(FName("GetWorkUnitHandleId"), UGWBWildcardValueCache::StaticClass());
+		GetWorkUnitHandleIdNode->bDefaultsToPureFunc = true;
+		GetWorkUnitHandleIdNode->AllocateDefaultPins();
+		UEdGraphPin* GetWorkUnitHandleIdInputPin = GetWorkUnitHandleIdNode->FindPin(TEXT("Handle"));
+		UEdGraphPin* WorkUnitHandleReturnedIdPin = GetWorkUnitHandleIdNode->FindPin(TEXT("ReturnValue"));
+		EventWorkHandlePinOut->MakeLinkTo(GetWorkUnitHandleIdInputPin);
+		
+		const auto FunctionName_Find = UGWBWildcardValueCache::GetFindFunctionName(ContextType.PinCategory, ContextType.PinSubCategoryObject.Get());
+		UK2Node_CallFunction* MapFindNode = CompilerContext.SpawnIntermediateNode<UK2Node_CallFunction>(this, SourceGraph);
+		MapFindNode->FunctionReference.SetExternalMember(FName(FunctionName_Find), UGWBWildcardValueCache::StaticClass());
+		MapFindNode->AllocateDefaultPins();
+		UEdGraphPin* MapFindExecPin = MapFindNode->GetExecPin();
+		UEdGraphPin* MapFindKeyPin = MapFindNode->FindPin(TEXT("Key"));
+		UEdGraphPin* MapFindReturnValuePin = MapFindNode->FindPin(TEXT("ReturnValue"));
+		UEdGraphPin* MapFindThenPin = MapFindNode->GetThenPin();
+		WorkUnitHandleReturnedIdPin->MakeLinkTo(MapFindKeyPin); // MapFindKeyPin->DefaultValue = FString::FromInt(this->GetUniqueID())
+
+		CompilerContext.MessageLog.Note(TEXT("Found FIND Pins @@"), MapFindKeyPin);
+
+		// make a sequence node we so we can remove the cached captured value after we invoke the DoWork code
+		UK2Node_ExecutionSequence* SequenceNode = CompilerContext.SpawnIntermediateNode<UK2Node_ExecutionSequence>(this, SourceGraph);
+		SequenceNode->AllocateDefaultPins();
+		SequenceNode->ReconstructNode();
+		UEdGraphPin* SequenceExecPin = SequenceNode->GetExecPin();
+		UEdGraphPin* FirstSequenceThenPin = SequenceNode->GetThenPinGivenIndex(0);
+		UEdGraphPin* SecondSequenceThenPin = SequenceNode->GetThenPinGivenIndex(1);
+
+		// step 2. rewire the context retreival to the context output
+		// EventThenPin -> SequenceExecPin -> FirstSequenceThenPin -> MapFindExecPin -> MapFindThenPin
+		CompilerContext.MovePinLinksToIntermediate(*EventThenPin, *MapFindThenPin);
+		CompilerContext.MovePinLinksToIntermediate(*ContextOutputPin, *MapFindReturnValuePin);
+		EventThenPin->MakeLinkTo(SequenceExecPin);
+		FirstSequenceThenPin->MakeLinkTo(MapFindExecPin);
+	}
+	
 	// Break any remaining links to our original pins
 	BreakAllNodeLinks();
 }
