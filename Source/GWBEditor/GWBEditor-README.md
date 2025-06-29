@@ -3,7 +3,7 @@
 Contains K2 node for simplified blueprint usage of the Gameplay Work Balancer.
 
 ### Relevant Classes
-* `UK2Node_GWBScheduleWorkAsync` use this K2 node to schedule work in blueprints with a simplified interface.
+* `UK2Node_GWBScheduleWork` use this K2 node to schedule work in blueprints with a simplified interface.
 
 
 ```
