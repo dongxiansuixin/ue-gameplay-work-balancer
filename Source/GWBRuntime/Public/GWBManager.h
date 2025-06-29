@@ -52,8 +52,8 @@ public:
 	 * @returns A work handle that can be used to register a callback when work is ready to be done
 	 * NOTE: call AbortGameWork or abort the returned promise to cancel the work.
 	 */
-	UFUNCTION(BlueprintCallable, Category = "GameWorkBalancer", meta=(GameplayTagFilter="GameWork", WorldContext="WorldContextObject"))
-	static FGWBWorkUnitHandle ScheduleWork(const UObject* WorldContextObject, UPARAM(meta = (GetOptions = "GetValidGroupNames")) FName WorkGroupId = "Default", const FGWBWorkOptions& WorkOptions = FGWBWorkOptions());
+	UFUNCTION(BlueprintCallable, Category = "GameWorkBalancer", meta=(GameplayTagFilter="GameWork", WorldContext="WorldContextObject", AutoCreateRefTerm="WorkOptions"))
+	static FGWBWorkUnitHandle ScheduleWork(const UObject* WorldContextObject, UPARAM(meta = (GetOptions = "GetValidGroupNames")) FName WorkGroupId = "Default", UPARAM(ref) const FGWBWorkOptions& WorkOptions = FGWBWorkOptions());
 	
 	/**
 	 * Aborting a work unit is, unfortunately, expensive as it uses a handle indexed by Id and loops through

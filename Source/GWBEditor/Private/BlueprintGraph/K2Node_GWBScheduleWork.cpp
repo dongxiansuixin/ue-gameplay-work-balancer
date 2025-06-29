@@ -25,7 +25,7 @@
 const FName UK2Node_GWBScheduleWork::ContextInputPinName(TEXT("Context"));
 const FName UK2Node_GWBScheduleWork::WorkGroupPinName(TEXT("WorkGroup"));
 const FName UK2Node_GWBScheduleWork::WorkOptionsPinName(TEXT("WorkOptions"));
-const FName UK2Node_GWBScheduleWork::OnCompletedPinName(TEXT("OnCompleted"));
+const FName UK2Node_GWBScheduleWork::OnDoWorkPinName(TEXT("OnDoWork"));
 const FName UK2Node_GWBScheduleWork::OnAbortedPinName(TEXT("OnAborted"));
 const FName UK2Node_GWBScheduleWork::ContextOutputPinName(TEXT("ContextOut"));
 const FName UK2Node_GWBScheduleWork::DeltaTimePinName(TEXT("DeltaTime"));
@@ -42,7 +42,7 @@ UK2Node_GWBScheduleWork::UK2Node_GWBScheduleWork()
 
 FText UK2Node_GWBScheduleWork::GetTooltipText() const
 {
-	return LOCTEXT("NodeTooltip", "Schedules work to be executed when there is room in the frame budget. Context value is passed through and returned when work completes.");
+	return LOCTEXT("NodeTooltip", "Schedules work to be executed when there is room in the frame budget. Context value is passed through and returned when work is performed.");
 }
 
 FText UK2Node_GWBScheduleWork::GetNodeTitle(ENodeTitleType::Type TitleType) const
@@ -106,10 +106,20 @@ void UK2Node_GWBScheduleWork::AllocateDefaultPins()
 	UEdGraphPin* WorkOptionsPin = CreatePin(EGPD_Input, UEdGraphSchema_K2::PC_Struct, 
 		FGWBWorkOptions::StaticStruct(), WorkOptionsPinName);
 	WorkOptionsPin->PinFriendlyName = LOCTEXT("WorkOptionsPinFriendlyName", "Work Options");
+	WorkOptionsPin->PinType.bIsReference = true;
+	
+	// // Set work options default value
+	// FString DefaultValueString;
+	// TBaseStructure<FGWBWorkOptions>::Get()->ExportText(DefaultValueString, &FGWBWorkOptions::EmptyOptions, nullptr, nullptr, PPF_None, nullptr);
+	// WorkOptionsPin->DefaultValue = DefaultValueString;
+
+	UEdGraphPin* WorkHandlePin = CreatePin(EGPD_Output, UEdGraphSchema_K2::PC_Struct, 
+		FGWBWorkUnitHandle::StaticStruct(), WorkHandlePinName);
+	WorkHandlePin->PinFriendlyName = LOCTEXT("WorkHandlePinFriendlyName", "Work Handle");
 
 	// Output execution pins
-	UEdGraphPin* OnCompletedPin = CreatePin(EGPD_Output, UEdGraphSchema_K2::PC_Exec, OnCompletedPinName);
-	OnCompletedPin->PinFriendlyName = LOCTEXT("OnCompletedPinFriendlyName", "On Completed");
+	UEdGraphPin* OnDoWorkPin = CreatePin(EGPD_Output, UEdGraphSchema_K2::PC_Exec, OnDoWorkPinName);
+	OnDoWorkPin->PinFriendlyName = LOCTEXT("OnDoWorkPinFriendlyName", "On Do Work");
 
 	UEdGraphPin* OnAbortedPin = CreatePin(EGPD_Output, UEdGraphSchema_K2::PC_Exec, OnAbortedPinName);
 	OnAbortedPin->PinFriendlyName = LOCTEXT("OnAbortedPinFriendlyName", "On Aborted");
@@ -119,11 +129,7 @@ void UK2Node_GWBScheduleWork::AllocateDefaultPins()
 	ContextOutputPin->PinFriendlyName = LOCTEXT("ContextOutputPinFriendlyName", "Context");
 
 	UEdGraphPin* DeltaTimePin = CreatePin(EGPD_Output, UEdGraphSchema_K2::PC_Real, UEdGraphSchema_K2::PC_Float, DeltaTimePinName);
-	DeltaTimePin->PinFriendlyName = LOCTEXT("DeltaTimePinFriendlyName", "Delta Time");
-
-	UEdGraphPin* WorkHandlePin = CreatePin(EGPD_Output, UEdGraphSchema_K2::PC_Struct, 
-		FGWBWorkUnitHandle::StaticStruct(), WorkHandlePinName);
-	WorkHandlePin->PinFriendlyName = LOCTEXT("WorkHandlePinFriendlyName", "Work Handle");
+	DeltaTimePin->PinFriendlyName = LOCTEXT("DeltaTimePinFriendlyName", "Time Since Scheduled");
 
 	Super::AllocateDefaultPins();
 }
@@ -247,9 +253,9 @@ UEdGraphPin* UK2Node_GWBScheduleWork::GetExecPin() const
 	return FindPin(UEdGraphSchema_K2::PN_Execute, EGPD_Input);
 }
 
-UEdGraphPin* UK2Node_GWBScheduleWork::GetCompletedPin() const
+UEdGraphPin* UK2Node_GWBScheduleWork::GetDoWorkPin() const
 {
-	return FindPin(OnCompletedPinName, EGPD_Output);
+	return FindPin(OnDoWorkPinName, EGPD_Output);
 }
 
 UEdGraphPin* UK2Node_GWBScheduleWork::GetAbortedPin() const
@@ -290,7 +296,7 @@ void UK2Node_GWBScheduleWork::ExpandNode(class FKismetCompilerContext& CompilerC
 	UEdGraphPin* WorkGroupPin = FindPin(WorkGroupPinName, EGPD_Input);
 	UEdGraphPin* WorkOptionsPin = FindPin(WorkOptionsPinName, EGPD_Input);
 	// OUTPUT pins
-	UEdGraphPin* OnCompletedPin = GetCompletedPin();
+	UEdGraphPin* OnDoWorkPin = GetDoWorkPin();
 	UEdGraphPin* OnAbortedPin = GetAbortedPin();
 	UEdGraphPin* ContextOutputPin = GetContextOutputPin();
 	UEdGraphPin* DeltaTimePin = FindPin(DeltaTimePinName, EGPD_Output);
@@ -298,7 +304,7 @@ void UK2Node_GWBScheduleWork::ExpandNode(class FKismetCompilerContext& CompilerC
 	
 	// Validate pins
 	if (!ExecInputPin || !ContextInputPin || !WorkGroupPin || !WorkOptionsPin || 
-		!OnCompletedPin || !OnAbortedPin || !ContextOutputPin || !DeltaTimePin || !WorkHandlePin)
+		!OnDoWorkPin || !OnAbortedPin || !ContextOutputPin || !DeltaTimePin || !WorkHandlePin)
 	{
 		CompilerContext.MessageLog.Error(TEXT("UK2Node_GWBScheduleWork: Missing required pins during expansion"));
 		return;
@@ -334,7 +340,11 @@ void UK2Node_GWBScheduleWork::ExpandNode(class FKismetCompilerContext& CompilerC
 	}
 	if (UEdGraphPin* WorkOptionsIdPin = ScheduleWorkNode->FindPinChecked(TEXT("WorkOptions")))
 	{
-		CompilerContext.MovePinLinksToIntermediate(*WorkOptionsPin, *WorkOptionsIdPin);
+		// if we provided work options, use those
+		if (WorkOptionsPin->HasAnyConnections())
+		{
+			CompilerContext.MovePinLinksToIntermediate(*WorkOptionsPin, *WorkOptionsIdPin);
+		}
 	}
 	
 	// 3. Create BindBlueprintCallback call
@@ -343,16 +353,16 @@ void UK2Node_GWBScheduleWork::ExpandNode(class FKismetCompilerContext& CompilerC
 	BindCallbackNode->SetFromFunction(BindCallbackFunction);
 	BindCallbackNode->AllocateDefaultPins();
 	
-	// 4. Create custom event for work completion callback
-	UK2Node_CustomEvent* CompletionEvent = CompilerContext.SpawnIntermediateNode<UK2Node_CustomEvent>(this, SourceGraph);
-	CompletionEvent->CustomFunctionName = FName(FString::Printf(TEXT("GWBWorkCompleted_%s"), *CompilerContext.GetGuid(this)));
-	CompletionEvent->bCallInEditor = false;
+	// 4. Create custom event for work execution callback
+	UK2Node_CustomEvent* DoWorkEvent = CompilerContext.SpawnIntermediateNode<UK2Node_CustomEvent>(this, SourceGraph);
+	DoWorkEvent->CustomFunctionName = FName(FString::Printf(TEXT("GWBDoWork_%s"), *CompilerContext.GetGuid(this)));
+	DoWorkEvent->bCallInEditor = false;
 	
 	// Add DeltaTime parameter to the custom event
 	FEdGraphPinType DeltaTimePinType;
 	DeltaTimePinType.PinCategory = UEdGraphSchema_K2::PC_Real;
 	DeltaTimePinType.PinSubCategory = UEdGraphSchema_K2::PC_Float;
-	UEdGraphPin* EventDeltaTimePin = CompletionEvent->CreateUserDefinedPin(DeltaTimePinName, DeltaTimePinType, EGPD_Output);
+	UEdGraphPin* EventDeltaTimePin = DoWorkEvent->CreateUserDefinedPin(DeltaTimePinName, DeltaTimePinType, EGPD_Output);
 	EventDeltaTimePin->PinFriendlyName = LOCTEXT("EventDeltaTimePinFriendlyName", "Delta Time");
 
 	// Add WorkUnitHandle param to the custom event
@@ -360,14 +370,14 @@ void UK2Node_GWBScheduleWork::ExpandNode(class FKismetCompilerContext& CompilerC
 	WorkUnitHandlePinType.PinCategory = UEdGraphSchema_K2::PC_Struct;
 	WorkUnitHandlePinType.bIsReference = true;
 	WorkUnitHandlePinType.PinSubCategoryObject = TBaseStructure<FGWBWorkUnitHandle>::Get();
-	CompletionEvent->CreateUserDefinedPin(WorkHandlePinName, WorkUnitHandlePinType, EGPD_Output);
+	DoWorkEvent->CreateUserDefinedPin(WorkHandlePinName, WorkUnitHandlePinType, EGPD_Output);
 	
-	CompletionEvent->ReconstructNode();
+	DoWorkEvent->ReconstructNode();
 	
 	// 5. Create delegate for the custom event
 	UK2Node_CreateDelegate* CreateDelegateNode = CompilerContext.SpawnIntermediateNode<UK2Node_CreateDelegate>(this, SourceGraph);
-	CreateDelegateNode->SelectedFunctionName = CompletionEvent->CustomFunctionName;
-	CreateDelegateNode->SelectedFunctionGuid = CompletionEvent->NodeGuid;
+	CreateDelegateNode->SelectedFunctionName = DoWorkEvent->CustomFunctionName;
+	CreateDelegateNode->SelectedFunctionGuid = DoWorkEvent->NodeGuid;
 	CreateDelegateNode->AllocateDefaultPins();
 	
 	// 7. Wire execution flow: Exec -> [StoreContext] -> ScheduleWork -> BindCallback -> Then
@@ -383,15 +393,15 @@ void UK2Node_GWBScheduleWork::ExpandNode(class FKismetCompilerContext& CompilerC
 	CompilerContext.MovePinLinksToIntermediate(*WorkHandlePin, *ScheduleWorkReturnPin);
 	
 	// Connect delegate to BindCallback
-	UEdGraphPin* OnDoWorkPin = BindCallbackNode->FindPin(TEXT("OnDoWork"));
+	UEdGraphPin* OnDoWorkDelegatePin = BindCallbackNode->FindPin(TEXT("OnDoWork"));
 	UEdGraphPin* DelegateOutputPin = CreateDelegateNode->GetDelegateOutPin();
-	DelegateOutputPin->MakeLinkTo(OnDoWorkPin);
+	DelegateOutputPin->MakeLinkTo(OnDoWorkDelegatePin);
 		
-	// 9. Wire completion custom event to our output pins
-	UEdGraphPin* EventThenPin = CompletionEvent->FindPin(UEdGraphSchema_K2::PN_Then, EGPD_Output);
-	UEdGraphPin* EventDeltaTimePinOut = CompletionEvent->FindPin(DeltaTimePinName, EGPD_Output);
-	UEdGraphPin* EventWorkHandlePinOut = CompletionEvent->FindPin(WorkHandlePinName, EGPD_Output);
-	CompilerContext.MovePinLinksToIntermediate(*OnCompletedPin, *EventThenPin);
+	// 9. Wire do work custom event to our output pins
+	UEdGraphPin* EventThenPin = DoWorkEvent->FindPin(UEdGraphSchema_K2::PN_Then, EGPD_Output);
+	UEdGraphPin* EventDeltaTimePinOut = DoWorkEvent->FindPin(DeltaTimePinName, EGPD_Output);
+	UEdGraphPin* EventWorkHandlePinOut = DoWorkEvent->FindPin(WorkHandlePinName, EGPD_Output);
+	CompilerContext.MovePinLinksToIntermediate(*OnDoWorkPin, *EventThenPin);
 	CompilerContext.MovePinLinksToIntermediate(*DeltaTimePin, *EventDeltaTimePinOut);
 
 	if (bHasValidContext)

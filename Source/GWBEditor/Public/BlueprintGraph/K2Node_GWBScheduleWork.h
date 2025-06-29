@@ -45,7 +45,7 @@ private:
 	static const FName ContextInputPinName;
 	static const FName WorkGroupPinName;
 	static const FName WorkOptionsPinName;
-	static const FName OnCompletedPinName;
+	static const FName OnDoWorkPinName;
 	static const FName OnAbortedPinName;
 	static const FName ContextOutputPinName;
 	static const FName DeltaTimePinName;
@@ -58,7 +58,7 @@ private:
 	UEdGraphPin* GetContextInputPin() const;
 	UEdGraphPin* GetContextOutputPin() const;
 	UEdGraphPin* GetExecPin() const;
-	UEdGraphPin* GetCompletedPin() const;
+	UEdGraphPin* GetDoWorkPin() const;
 	UEdGraphPin* GetAbortedPin() const;
 	
 	// Context type information
