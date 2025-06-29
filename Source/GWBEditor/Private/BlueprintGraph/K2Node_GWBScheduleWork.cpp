@@ -15,6 +15,7 @@
 #include "KismetCompiler.h"
 #include "GWBWildcardValueCache.h"
 #include "K2Node_ExecutionSequence.h"
+#include "K2Node_MakeStruct.h"
 #include "Kismet/BlueprintMapLibrary.h"
 #include "Kismet/KismetNodeHelperLibrary.h"
 
@@ -276,48 +277,6 @@ FEdGraphPinType UK2Node_GWBScheduleWork::GetConnectedContextType() const
 	return WildcardType;
 }
 
-FName UK2Node_GWBScheduleWork::GetOrCreateSharedVariable(FKismetCompilerContext& CompilerContext, UEdGraph* SourceGraph,
-	FName ValueType)
-{
-	// Check if we already created the shared variable for this graph
-	if (FName* ExistingVar = GraphSharedVariables.Find(SourceGraph))
-	{
-		return *ExistingVar;
-	}
-        
-	// Create the shared variable for this graph
-	const FName UniqueVarName = *FString::Printf(TEXT("SharedMap_%s"), *FGuid::NewGuid().ToString());
-        
-	// Create a Blueprint variable in the owning Blueprint
-	if (UBlueprint* Blueprint = FBlueprintEditorUtils::FindBlueprintForGraph(SourceGraph))
-	{
-		// Create the variable property
-		FEdGraphPinType MapPinType;
-		MapPinType.PinCategory = ValueType;
-		// MapPinType.PinSubCategoryObject = TBaseStructure<TMap<int32, UObject*>>::Get();
-		MapPinType.ContainerType = EPinContainerType::Map;
-		MapPinType.PinValueType.TerminalCategory = UEdGraphSchema_K2::PC_Int; // Key type
-		MapPinType.PinValueType.TerminalSubCategory = ValueType; // Value type
-            
-		// Add variable to Blueprint
-		FBlueprintEditorUtils::AddMemberVariable(Blueprint, UniqueVarName, MapPinType);
-            
-		// Mark Blueprint as modified
-		FBlueprintEditorUtils::MarkBlueprintAsStructurallyModified(Blueprint);
-		
-		// Force reconstruction of all nodes to recognize the new variable
-		FBlueprintEditorUtils::ReconstructAllNodes(Blueprint);
-		
-		// Refresh the Blueprint's variable list
-		FBlueprintEditorUtils::RefreshAllNodes(Blueprint);
-	}
-        
-	// Cache the variable name for this graph
-	GraphSharedVariables.Add(SourceGraph, UniqueVarName);
-        
-	return UniqueVarName;
-}
-
 UE_DISABLE_OPTIMIZATION
 
 void UK2Node_GWBScheduleWork::ExpandNode(class FKismetCompilerContext& CompilerContext, UEdGraph* SourceGraph)
@@ -503,6 +462,16 @@ void UK2Node_GWBScheduleWork::ExpandNode(class FKismetCompilerContext& CompilerC
 		CompilerContext.MovePinLinksToIntermediate(*ContextOutputPin, *MapFindReturnValuePin);
 		EventThenPin->MakeLinkTo(SequenceExecPin);
 		FirstSequenceThenPin->MakeLinkTo(MapFindExecPin);
+
+		// finally wire the second sequence then pin to a function call to remove the captured context value
+		const auto FunctionName_Remove = UGWBWildcardValueCache::GetRemoveFunctionName(ContextType.PinCategory, ContextType.PinSubCategoryObject.Get());
+		UK2Node_CallFunction* RemoveWildcardCacheItemFunctionNode = CompilerContext.SpawnIntermediateNode<UK2Node_CallFunction>(this, SourceGraph);
+		RemoveWildcardCacheItemFunctionNode->FunctionReference.SetExternalMember(FName(FunctionName_Remove), UGWBWildcardValueCache::StaticClass());
+		RemoveWildcardCacheItemFunctionNode->AllocateDefaultPins();
+		UEdGraphPin* RemoveKeyPin = RemoveWildcardCacheItemFunctionNode->FindPin(TEXT("Key"));
+		UEdGraphPin* RemoveExecPin = RemoveWildcardCacheItemFunctionNode->GetExecPin();
+		WorkUnitHandleReturnedIdPin->MakeLinkTo(RemoveKeyPin); // Key (ID)
+		SecondSequenceThenPin->MakeLinkTo(RemoveExecPin);
 	}
 	
 	// Break any remaining links to our original pins

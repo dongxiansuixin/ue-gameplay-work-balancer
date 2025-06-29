@@ -165,6 +165,55 @@ FTransform UGWBWildcardValueCache::GetWildcardTransform(const int32 Key)
 	return FTransform::Identity;
 }
 
+// Remove functions
+void UGWBWildcardValueCache::RemoveWildcardInt(const int32 Key)
+{
+	FScopeLock Lock(&CacheLock);
+	IntCache.Remove(Key);
+}
+
+void UGWBWildcardValueCache::RemoveWildcardFloat(const int32 Key)
+{
+	FScopeLock Lock(&CacheLock);
+	FloatCache.Remove(Key);
+}
+
+void UGWBWildcardValueCache::RemoveWildcardString(const int32 Key)
+{
+	FScopeLock Lock(&CacheLock);
+	StringCache.Remove(Key);
+}
+
+void UGWBWildcardValueCache::RemoveWildcardBool(const int32 Key)
+{
+	FScopeLock Lock(&CacheLock);
+	BoolCache.Remove(Key);
+}
+
+void UGWBWildcardValueCache::RemoveWildcardObject(const int32 Key)
+{
+	FScopeLock Lock(&CacheLock);
+	ObjectCache.Remove(Key);
+}
+
+void UGWBWildcardValueCache::RemoveWildcardVector(const int32 Key)
+{
+	FScopeLock Lock(&CacheLock);
+	VectorCache.Remove(Key);
+}
+
+void UGWBWildcardValueCache::RemoveWildcardRotator(const int32 Key)
+{
+	FScopeLock Lock(&CacheLock);
+	RotatorCache.Remove(Key);
+}
+
+void UGWBWildcardValueCache::RemoveWildcardTransform(const int32 Key)
+{
+	FScopeLock Lock(&CacheLock);
+	TransformCache.Remove(Key);
+}
+
 // Utility functions
 void UGWBWildcardValueCache::ClearWildcardCache(const FName& ValueType)
 {
@@ -218,46 +267,6 @@ void UGWBWildcardValueCache::ClearAllWildcardCaches()
 	VectorCache.Empty();
 	RotatorCache.Empty();
 	TransformCache.Empty();
-}
-
-bool UGWBWildcardValueCache::HasWildcardKey(const int32 Key, const FName& ValueType)
-{
-	FScopeLock Lock(&CacheLock);
-	
-	if (ValueType == PC_Int)
-	{
-		return IntCache.Contains(Key);
-	}
-	else if (ValueType == PC_Float)
-	{
-		return FloatCache.Contains(Key);
-	}
-	else if (ValueType == PC_String)
-	{
-		return StringCache.Contains(Key);
-	}
-	else if (ValueType == PC_Boolean)
-	{
-		return BoolCache.Contains(Key);
-	}
-	else if (ValueType == PC_Object)
-	{
-		return ObjectCache.Contains(Key);
-	}
-	else if (ValueType == TEXT("Vector") || (ValueType == PC_Struct && ValueType.ToString().Contains(TEXT("Vector"))))
-	{
-		return VectorCache.Contains(Key);
-	}
-	else if (ValueType == TEXT("Rotator") || (ValueType == PC_Struct && ValueType.ToString().Contains(TEXT("Rotator"))))
-	{
-		return RotatorCache.Contains(Key);
-	}
-	else if (ValueType == TEXT("Transform") || (ValueType == PC_Struct && ValueType.ToString().Contains(TEXT("Transform"))))
-	{
-		return TransformCache.Contains(Key);
-	}
-	
-	return false;
 }
 
 // Function name retrieval methods
@@ -335,4 +344,78 @@ FString UGWBWildcardValueCache::GetFindFunctionName(const FName& PinCategory, UO
 	}
 	
 	return TEXT("");
+}
+
+FString UGWBWildcardValueCache::GetRemoveFunctionName(const FName& PinCategory, UObject* PinSubCategoryObject)
+{
+	if (PinCategory == PC_Int)
+	{
+		return TEXT("RemoveWildcardInt");
+	}
+	else if (PinCategory == PC_Float)
+	{
+		return TEXT("RemoveWildcardFloat");
+	}
+	else if (PinCategory == PC_String)
+	{
+		return TEXT("RemoveWildcardString");
+	}
+	else if (PinCategory == PC_Boolean)
+	{
+		return TEXT("RemoveWildcardBool");
+	}
+	else if (PinCategory == PC_Object)
+	{
+		return TEXT("RemoveWildcardObject");
+	}
+	else if (PinCategory == PC_Struct && PinSubCategoryObject == TBaseStructure<FVector>::Get())
+	{
+		return TEXT("RemoveWildcardVector");
+	}
+	else if (PinCategory == PC_Struct && PinSubCategoryObject == TBaseStructure<FRotator>::Get())
+	{
+		return TEXT("RemoveWildcardRotator");
+	}
+	else if (PinCategory == PC_Struct && PinSubCategoryObject == TBaseStructure<FTransform>::Get())
+	{
+		return TEXT("RemoveWildcardTransform");
+	}
+	
+	return TEXT("");
+}
+
+void UGWBWildcardValueCache::RemoveWildcardCacheItem(const int32 Key, const FEdGraphPinType& ValueType)
+{
+	if (ValueType.PinCategory == PC_Int)
+	{
+		IntCache.Remove(Key);
+	}
+	else if (ValueType.PinCategory == PC_Float)
+	{
+		FloatCache.Remove(Key);
+	}
+	else if (ValueType.PinCategory == PC_String)
+	{
+		StringCache.Remove(Key);
+	}
+	else if (ValueType.PinCategory == PC_Boolean)
+	{
+		BoolCache.Remove(Key);
+	}
+	else if (ValueType.PinCategory == PC_Object)
+	{
+		ObjectCache.Remove(Key);
+	}
+	else if (ValueType.PinCategory == PC_Struct && ValueType.PinSubCategoryObject == TBaseStructure<FVector>::Get())
+	{
+		VectorCache.Remove(Key);
+	}
+	else if (ValueType.PinCategory == PC_Struct && ValueType.PinSubCategoryObject == TBaseStructure<FRotator>::Get())
+	{
+		RotatorCache.Remove(Key);
+	}
+	else if (ValueType.PinCategory == PC_Struct && ValueType.PinSubCategoryObject == TBaseStructure<FTransform>::Get())
+	{
+		TransformCache.Remove(Key);
+	}
 }

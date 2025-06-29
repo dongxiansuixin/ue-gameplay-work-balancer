@@ -113,15 +113,37 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "GWB|Wildcard Cache", meta = (CallInEditor = "true"))
 	static FTransform GetWildcardTransform(const int32 Key);
 
+	// Remove functions for different value types
+	UFUNCTION(BlueprintCallable, Category = "GWB|Wildcard Cache", meta = (CallInEditor = "true"))
+	static void RemoveWildcardInt(const int32 Key);
+
+	UFUNCTION(BlueprintCallable, Category = "GWB|Wildcard Cache", meta = (CallInEditor = "true"))
+	static void RemoveWildcardFloat(const int32 Key);
+
+	UFUNCTION(BlueprintCallable, Category = "GWB|Wildcard Cache", meta = (CallInEditor = "true"))
+	static void RemoveWildcardString(const int32 Key);
+
+	UFUNCTION(BlueprintCallable, Category = "GWB|Wildcard Cache", meta = (CallInEditor = "true"))
+	static void RemoveWildcardBool(const int32 Key);
+
+	UFUNCTION(BlueprintCallable, Category = "GWB|Wildcard Cache", meta = (CallInEditor = "true"))
+	static void RemoveWildcardObject(const int32 Key);
+
+	UFUNCTION(BlueprintCallable, Category = "GWB|Wildcard Cache", meta = (CallInEditor = "true"))
+	static void RemoveWildcardVector(const int32 Key);
+
+	UFUNCTION(BlueprintCallable, Category = "GWB|Wildcard Cache", meta = (CallInEditor = "true"))
+	static void RemoveWildcardRotator(const int32 Key);
+
+	UFUNCTION(BlueprintCallable, Category = "GWB|Wildcard Cache", meta = (CallInEditor = "true"))
+	static void RemoveWildcardTransform(const int32 Key);
+
 	// Utility functions
 	UFUNCTION(BlueprintCallable, Category = "GWB|Wildcard Cache", meta = (CallInEditor = "true"))
 	static void ClearWildcardCache(const FName& ValueType);
 
 	UFUNCTION(BlueprintCallable, Category = "GWB|Wildcard Cache", meta = (CallInEditor = "true"))
 	static void ClearAllWildcardCaches();
-
-	UFUNCTION(BlueprintCallable, Category = "GWB|Wildcard Cache", meta = (CallInEditor = "true"))
-	static bool HasWildcardKey(const int32 Key, const FName& ValueType);
 
 	// Function name retrieval methods
 	UFUNCTION(BlueprintCallable, Category = "GWB|Wildcard Cache", meta = (CallInEditor = "true"))
@@ -130,8 +152,14 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "GWB|Wildcard Cache", meta = (CallInEditor = "true"))
 	static FString GetFindFunctionName(const FName& PinCategory, UObject* PinSubCategoryObject);
 
+	UFUNCTION(BlueprintCallable, Category = "GWB|Wildcard Cache", meta = (CallInEditor = "true"))
+	static FString GetRemoveFunctionName(const FName& PinCategory, UObject* PinSubCategoryObject);
+
 	UFUNCTION(BlueprintPure, Category = "GWB|Wildcard Cache", meta = (CallInEditor = "true"))
 	static int32 GetWorkUnitHandleId(UPARAM(ref) const FGWBWorkUnitHandle& Handle) { return Handle.GetId(); }
+
+	UFUNCTION(BlueprintCallable, Category = "GWB|Wildcard Cache", meta = (CallInEditor = "true"))
+	static void RemoveWildcardCacheItem(const int32 Key, const FEdGraphPinType& ValueType);
 
 private:
 	// Static maps for each value type

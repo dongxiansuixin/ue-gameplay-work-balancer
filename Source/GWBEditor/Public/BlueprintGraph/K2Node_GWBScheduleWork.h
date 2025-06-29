@@ -8,7 +8,6 @@
 
 /**
  * Independent K2 Blueprint node for scheduling work with wildcard context support.
- * Handles everything directly without async action proxies or custom thunks.
  */
 UCLASS()
 class GWBEDITOR_API UK2Node_GWBScheduleWork : public UK2Node
@@ -40,10 +39,6 @@ protected:
 	// Wildcard pin management
 	void PropagateWildcardPinTypes();
 	void ResetWildcardPinTypes();
-	
-	// Node generation helpers
-	UK2Node_CallFunction* CreateCallFunctionNode(FKismetCompilerContext& CompilerContext, UEdGraph* SourceGraph, UFunction* Function) const;
-	UK2Node_CustomEvent* CreateCompletionEvent(FKismetCompilerContext& CompilerContext, UEdGraph* SourceGraph, const FEdGraphPinType& ContextType) const;
 
 private:
 	// Pin names
@@ -69,6 +64,4 @@ private:
 	// Context type information
 	bool HasWildcardContextPins() const;
 	FEdGraphPinType GetConnectedContextType() const;
-	
-	FName GetOrCreateSharedVariable(FKismetCompilerContext& CompilerContext, UEdGraph* SourceGraph, FName ValueType);
 };
