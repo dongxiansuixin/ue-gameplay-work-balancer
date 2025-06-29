@@ -16,10 +16,12 @@
     <img src="Resources/Logo.png" alt="Logo" width="80" height="80">
   </a>
   <h3 align="center">Gameplay Work Balancer</h3>
-  <p align="center">Unreal Engine plugin that helps you spread the work (time slice it) across multiple frames so that your game does not exceed it's intended frame budget and maintains a stable frame rate (FPS).
+  <p align="center">Unreal Engine Plugin that helps you spread the work (time slice it) across multiple frames so that your game does not exceed it's intended frame budget and maintains a stable frame rate (FPS).
     <br />
     <br />
     <a href="#Getting-Started">Getting Started</a>
+    &middot;
+    <a href="#Getting-Started">Roadmap</a>
     &middot;
     <a href="https://github.com/eanticev/UE-GameplayWorkBalancer/issues/new?labels=bug&template=bug-report---.md">Report Bug</a>
     &middot;
@@ -32,7 +34,7 @@
 
 [![Product Name Screen Shot][product-screenshot]](/)
 
-Gameplay Work Balancer (GWB) is an Unreal Engine plugin that allows you to define a time budget and schedule units of work that need to be done. The balancer will spread the work (time slice it) across multiple frames so that your game does not exceed it's intended frame budget and maintains a stable frame rate (FPS).
+Gameplay Work Balancer (GWB) is an Unreal Engine plugin that allows you to define a time budget and schedule units of work that need to be performed. The balancer will spread the work (time slice it) across multiple frames so that your game does not exceed it's intended frame budget and maintains a stable frame rate (FPS).
 
 ### Why do I need this?
 
@@ -41,14 +43,25 @@ Gameplay Work Balancer (GWB) is an Unreal Engine plugin that allows you to defin
 
 ### When should I use this?
 - Distrubute spawning VFX across multiple frames for bullet impacts so that visual side-effects don't cause frame spikes.
-- Distribute cleanup / destruction of actors across multiple frames so that common gameplay like enemies dying doesn't cause frame spikes.
-- Distribute spawning enemies or far away actors across multiple frames. Useful if you have a large batch that needs to spawn but you want to avoid frame spikes.
+- Distribute cleanup / destruction of actors across multiple frames so that (for example) enemies dying doesn't cause frame spikes.
+- Distribute spawning a large number of far away actors across multiple frames.
 
 ### What is this NOT?
 - This system does NOT improve performance... at all. It just distributes work. This implies your game has to run at your target FPS most of the time. If your game is already running at like 15 FPS then distributing the work will prevent it from spiking to 5 FPS but will not make your game run faster.
 - This is not a multi-threading framework. Everything still runs on the game thread.
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
+
+
+# Roadmap
+
+* [ ] Improve singleton usage across UWorld lifecycle in both editor and game.
+* [ ] Improve singleton usage across UWorld lifecycle in both editor and game.
+* [x] Release v0.9.
+
+
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
+
 
 # Getting Started
 
@@ -93,11 +106,15 @@ for (auto SpawnEvent : SpawnEnemiesAtLocations)
 
 You can also do this in Blueprints:
 
-... BP IMAGE EXAMPLE ...
+[![BP Usage][blueprint-usage]](/)
 
-Note that the custom K2 node provides a neat feature where it LATENTLY passes through the context pin. This means you can rely on that pin having the correct value when DoWork is triggered like in this example:
+Note that the custom K2 node provides a neat feature where it LATENTLY passes through the context pin. This means you can rely on that pin having the correct value when DoWork is triggered like so:
 
-... FOR LOOP EXAMPLE ...
+[![BP Usage: Context Value Capture][blueprint-context-capture]](/)
+
+Here's a more elaborate example:
+
+[![BP Usage: For Loop With Capture][blueprint-usage-array]](/)
 
 You can disable the system globally by setting the cvar **gwb.enabled** to `false`. When disabled, GWB just immediatelly triggers the work when it's scheduled (as if though it doesn't exist). This is helpful when debugging and you want things to happen in the same stack frame.
 
@@ -118,16 +135,6 @@ You can disable the system globally by setting the cvar **gwb.enabled** to `fals
 - Both `FGWBWorkOptions` and `FGWBWorkGroupDefinition` have `Priority` settings to control work ordering.
 - Abort scheduled work using `UGWBManager::AbortWorkUnit(Handle)`
 
-## Debugging
-
-* When you disable the balancer via `gwb.enabled` CVar, it acts as a passthrough system with no deferral.
-* Enable verbose logging for category `Log_GameplayWorkBalancer`.
-* Use the stats below to monitor system performance.
-
-```TABLE```
-```TABLE```
-```TABLE```
-
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
 ## Configuration
@@ -141,7 +148,7 @@ You can control the system via CVars and INI settings. There are some sensible d
 | `gwb.enabled`             | bool  | `true`  | Whether balancer is enabled.                                                                                                                                                                                                  |
 | `gwb.budget.frame`        | float | `0.005` | Time in seconds balancer may spend per frame doing work (negative values mean infinite budget). It is recommended to customize this budget per platform (i.e. slower platforms may need higher budgets to avoid work delays). |
 | `gwb.budget.count`        | int32 | `-1`    | Max number of units of work allowed per work cycle (frame). Negative values mean infinite.                                                                                                                                    |
-| `gwb.schedule.interval`      | float | `0.0`   | Time in seconds between balancer work frames, where 0 indicates every frame.                                                                                                                                                  |
+| `gwb.schedule.interval`   | float | `0.0`   | Time in seconds between balancer work frames, where 0 indicates every frame.                                                                                                                                                  |
 | `gwb.immediateduringwork` | bool  | `true`  | Whether work scheduled in the currently working category is immediately executed instead of scheduled for next frame.                                                                                                         |
 | `gwb.escalation.scalar`   | float | `0.5`   | Maximum offset scalar to balancer frame budget when escalation triggered, applied as (budget + budget * scalar).                                                                                                              |
 | `gwb.escalation.count`    | int32 | `30`    | Number of work instances used as reference for when escalation should be triggered.                                                                                                                                           |
@@ -166,6 +173,25 @@ You can define work groups and their budgets in your INI like so:
 ; Audio processing work group
 +WorkGroupDefinitions=(Id="AudioProcessing",Priority=80,bMutableWhileRunning=true,MaxFrameBudget=0.0015,MaxWorkUnitsPerFrame=15,bCanSkipFrame=false,bSkipUnlessFirstInFrame=false,MaxNumSkippedFrames=0,bAlwaysSkipUntilMax=false,SkipPriorityDelta=0)
 ```
+
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
+
+
+## Debugging
+
+* When you disable the balancer via `gwb.enabled` CVar, it acts as a passthrough system with no deferral.
+* Enable verbose logging for category `Log_GameplayWorkBalancer`.
+* Use the stats below to monitor system performance.
+
+| Stat Name                        | Type              | Description                                                 |
+|----------------------------------|-------------------|-------------------------------------------------------------|
+| STAT_ScheduleWorkUnit            | Cycle Stat        | Time spent scheduling individual work units into the system |
+| STAT_DoWorkForFrame              | Cycle Stat        | Total time spent executing work for the entire frame        |
+| STAT_DoWorkForFrame_Groups       | Cycle Stat        | Time spent processing work groups during frame execution    |
+| STAT_DoWorkForFrame_Reprioritize | Cycle Stat        | Time spent reprioritizing work units during frame execution |
+| STAT_DoWorkForGroup              | Cycle Stat        | Time spent executing work for a specific work group         |
+| STAT_DoWorkForUnit               | Cycle Stat        | Time spent executing an individual work unit                |
+| STAT_GameWorkBalancer_WorkCount  | DWORD Accumulator | Running count of work units processed by the system         |
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
@@ -265,8 +291,7 @@ Distributed under the MIT License. See `LICENSE` for more information.
 <!-- ACKNOWLEDGMENTS -->
 ## Acknowledgments
 
-* Collin Hover - 
-* 
+* Collin Hover - built the original version of this plugin at Counterplay Games. The original version had deep integration with our custom promise library and a lot more features we haven't implemented as extensions into this plugin yet.
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
@@ -292,6 +317,7 @@ Distributed under the MIT License. See `LICENSE` for more information.
 [step-2]: Resources/drop-blueprint-into-level.webp
 [step-3]: Resources/use-ndd-debugger.webp
 
-[usage-destruction-force-blueprint]: Resources/blueprint_usage.png
-[usage-destruction-force-blueprint]: Resources/blueprint_usage_capture_var.png
+[blueprint-usage]: Resources/blueprint_usage.png
+[blueprint-context-capture]: Resources/blueprint_context_capture.png
+[blueprint-usage-array]: Resources/blueprint_usage_array.png
 [architecture-diagram]: Resources/use-ndd-debugger.webp
