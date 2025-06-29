@@ -7,6 +7,36 @@
 #include "GWBWildcardValueCache.generated.h"
 
 
+/**
+ * The wildcard cache is a set of function meant to be used by custom K2 nodes to "capture" variables values 
+ * based on their pin type (PC type) and temporarily store them in a global private array managed by the functions
+ * in this library.
+ *
+ * This allows us to effectively capture a variable's value for latent k2 nodes that may have exec pins that are delayed
+ * or deferred to the next stack call. A good example is if we have a loop and a latent K2 node that takes the index
+ * of the loop and passes it through as an output intended to be used by a latent exec pin. Without the "captured" cache
+ * this library provides, the outgoing latent exec pin would always get the last loop index.
+ *
+ * So this library is intended to provide a set of static library methods for each in type (for example PC_Boolean, PC_Float, PC_String, etc...)
+ * that allow you to SET, GET, and REMOVE a value from an underlying global cache. The values are meant to be stored in a lookup
+ * map indexed by an int32 that the K2 node needs to generate per execution in some way in order to retrieve the correct
+ * captured value.
+ *
+ * Because these library methods are intended to be used by K2 nodes, they must be UFUNCTIONS and we need a way to get the name
+ * of the function for each pin type (for example PC_Boolean, PC_String, etc). This library also therefore provides methods to look up
+ * the names fo the GET, SET, and REMOVE functions by pin type.
+ *
+ * There is also a unique case we want to handle in the case of structs. K2 pins represent structs as the PC_Struct pin type but
+ * they also need to know WHICH struct it is, and to do this they provide a few properties on FEdGraphPinType that give you info on the struct type:
+ * - FEdGraphPinType::PinCategory maps to one of the PC types (PC_Struct for example)
+ * - FEdGraphPinType::PinSubCategory sometimes provides extra info
+ * - FEdGraphPinType::PinSubCategoryObject is what the PC_Struct pin category uses to define the struct by containing a soft pointer to an object
+ * that you can compare to a struct to see if it matches. For example you can compare `PinTypePinSubCategoryObject.Get() == TBaseStructure<FVector>::Get()` to see
+ * if this pin type is for a FVector struct.
+ *
+ * Because of this unique STRUCT requirement we also need our function name lookup methods to include a UObject* parameter for the sub-category object we can
+ * then compare to the important structures like FVector, FRotator, FTransform, etc.
+ */
 UCLASS()
 class GWBCUSTOMNODESRUNTIME_API UGWBWildcardValueCache : public UBlueprintFunctionLibrary
 {
