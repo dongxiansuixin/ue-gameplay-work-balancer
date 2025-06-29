@@ -6,54 +6,83 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 The Gameplay Work Balancer (GWB) is an Unreal Engine plugin that helps distribute and balance intensive computational work across multiple frames to maintain performance targets. It's designed to prevent gameplay hitches by managing the execution time of background tasks, AI processing, and other computationally intensive systems.
 
-## Architecture
+## Development Commands
 
-The GWB system consists of the following key components:
+### Building and Testing
+- **Build Plugin**: This is an Unreal Engine plugin - build through the Unreal Editor or using UBT (Unreal Build Tool)
+- **Run Tests**: Execute automation tests via UE Editor's Session Frontend or command line:
+  ```
+  UnrealEditor.exe [ProjectPath] -ExecCmds="Automation RunTests GWB" -unattended -nopause -testexit="Automation Test Queue Empty"
+  ```
+- **Run Specific Test**: Target individual test classes like `GWBManagerTests`, `GWBSchedulerTests`, `GWBExtensionsTests`
 
-1. **GWBManager** - Central manager responsible for scheduling and executing work units, maintaining work groups, and handling the lifecycle of work units.
+### Module Structure and Dependencies
 
-2. **GWBSubsystem** - Engine subsystem that initializes the GWB system and provides access to components like TimeSlicers.
+The plugin consists of 4 modules in dependency order:
 
-3. **GWBScheduler** - Controls when work cycles start and manages the timing for executing work.
+1. **GWBTimeSlicer** (Foundation) - Low-level time slicing utilities and `BUDGETED_FOR_LOOP` macro
+2. **GWBRuntime** (Core) - Main work balancing system, depends on GWBTimeSlicer
+3. **GWBCustomNodesRuntime** - Blueprint node runtime support, depends on GWBRuntime  
+4. **GWBEditor** (Editor-only) - Blueprint graph integration, depends on both runtime modules
 
-4. **GWBTimeSlicer** - Manages time budget allocation and tracking for work execution, ensuring work doesn't exceed frame budgets.
+All modules use C++20 standard and include comprehensive automation test integration.
 
-5. **GWBWorkUnit** - Represents a unit of work to be executed, containing callback delegates and state tracking.
+## Architecture and Key Systems
 
-6. **GWBWorkUnitHandle** - Handle returned to callers providing an interface to interact with scheduled work units.
+### Core Components
 
-The workflow typically involves:
-- Game code schedules work through the GWBManager
-- Work is organized into work groups with specific budget constraints
-- The scheduler determines when work should be executed
-- Time slicers enforce budget constraints to prevent excessive frame time usage
+- **UGWBManager** - Central singleton for scheduling/executing work units and managing work groups
+- **UGWBSubsystem** - Engine subsystem managing GWB system lifecycle and providing component access
+- **UGWBScheduler** - Controls work cycle timing and delegates execution scheduling
+- **UGWBTimeSlicer** - Low-level time budget tracking and enforcement for individual operations
+- **FGWBWorkUnit** - Individual work items with callback delegates and state tracking
+- **UGWBWorkUnitHandle** - Lightweight handle providing user interface to scheduled work
 
-Tests are organized into:
-- GWBManagerTests - Tests for the core manager functionality
-- GWBSchedulerTests - Tests for the scheduler behavior
+### Extension System
 
-## Development
+The plugin features a sophisticated **modifier system** for runtime behavior customization:
+
+- **ValueModifier\<T\>** - Type-erased function-based modifier system (C++ only, no Blueprint support)
+- **FModifierManager** - Manages budget and priority modifiers using type erasure instead of virtual inheritance
+- **Extensions API** - Allows registration of custom modifiers that can alter frame budgets, priorities, and respond to work lifecycle events
+
+### Time Slicing Utilities
+
+- **FGWBTimeSliceScopedHandle** / **FGWBTimeSlicedLoopScope** - Manual time slicing for custom loops
+- **BUDGETED_FOR_LOOP** macro - Convenient wrapper for time-sliced iteration over containers
+- **FBudgetedLoopHandle** - Provides early loop termination capabilities
+
+### Custom K2 Node with Value Capture System
+
+**UK2Node_GWBScheduleWork** is a custom K2 node that uses the **GWBCustomNodesRuntime** module which includes a sophisticated caching system for Blueprint latent node context:
+- Captures and preserves variable context across frame boundaries
+- Enables Blueprint nodes to maintain state during asynchronous work execution
+
+## Development Guidelines
+
+### Testing Framework
+
+- Use **FScopedCVarOverride** template for temporarily modifying console variables during tests
+- Extend real implementations with `TEST_` prefixed methods for mocking
+- Tests use Unreal's BDD-style spec framework (`BEGIN_DEFINE_SPEC`)
+- Test utilities located in dedicated `Tests/` folders within each module
 
 ### Console Variables (CVars)
 
-The plugin behavior can be configured with the following console variables:
+Runtime behavior controlled via CVars defined in `Source/GWBRuntime/Public/CVars.h`:
+- `gwb.enabled` - Global system toggle (default: true)
+- `gwb.budget.frame` - Per-frame time budget in seconds (default: 0.005)
+- `gwb.schedule.interval` - Work cycle interval (default: 0.0 = every frame)
+- Escalation system CVars for adaptive budget scaling
+- `gwb.immediateduringwork` - Immediate execution mode toggle
 
-- `gwb.enabled` - Whether the balancer is enabled (default: true)
-- `gwb.frame.budget` - Time in seconds balancer may spend per frame (default: 0.005)
-- `gwb.frame.interval` - Time in seconds between balancer work frames (default: 0.0 = every frame)
-- `gwb.escalation.scalar` - Maximum offset scalar to frame budget when escalation triggered (default: 0.5)
-- `gwb.escalation.count` - Number of work instances for escalation reference (default: 30)
-- `gwb.escalation.duration` - How quickly escalation should scale up in seconds (default: 0.5)
-- `gwb.escalation.decay` - How quickly escalation should scale down in seconds (default: 0.5)
-- `gwb.immediateduringwork` - Whether work in current category is immediately executed (default: true)
+### Work Group Configuration
 
-When testing specific behavior, these variables can be modified at runtime or overridden in tests using the `FScopedCVarOverride` utility.
+Define work groups in project INI files under `[/Script/GWBRuntime.GWBManager]`:
+```ini
++WorkGroupDefinitions=(Id="CriticalSystems",Priority=100,MaxFrameBudget=0.002,MaxWorkUnitsPerFrame=5)
+```
 
-### Test Utilities
+### Performance Stats
 
-When writing tests for GWB functionality:
-
-1. Use `FScopedCVarOverride` to temporarily change console variables during tests
-2. Create mock objects by extending the real implementations and adding test-specific methods prefixed with `TEST_`
-3. Use helper classes like `FGWBManagerTestHelper` for common test setup
-4. Test both normal and edge cases (zero budget, exceeding budget, etc.)
+Performance monitoring available via stats system defined in `Source/GWBRuntime/Public/Stats.h`
