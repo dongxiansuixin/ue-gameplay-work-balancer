@@ -16,7 +16,7 @@
     <img src="Resources/Logo.png" alt="Logo" width="80" height="80">
   </a>
   <h3 align="center">Gameplay Work Balancer</h3>
-  <p align="center">Unreal Engine Plugin that helps you spread the work (time slice it) across multiple frames so that your game does not exceed it's intended frame budget and maintains a stable frame rate (FPS).
+  <p align="center">Unreal Engine Plugin that helps you spread work (time slice it) across multiple frames so that your game does not exceed it's intended frame budget and maintains a stable frame rate (FPS).
     <br />
     <br />
     <a href="#Getting-Started">Getting Started</a>
@@ -35,6 +35,13 @@
 [![Product Name Screen Shot][product-screenshot]](/)
 
 Gameplay Work Balancer (GWB) is an Unreal Engine plugin that allows you to define a time budget and schedule units of work that need to be performed. The balancer will spread the work (time slice it) across multiple frames so that your game does not exceed it's intended frame budget and maintains a stable frame rate (FPS).
+
+### How does it work?
+
+<details>
+<summary>Expand for an explainer diagram</summary>
+[![Runtime Explainer][explainer-image]](/)
+</details>
 
 ### Why do I need this?
 
@@ -75,7 +82,7 @@ Gameplay Work Balancer (GWB) is an Unreal Engine plugin that allows you to defin
     2. Right click your `uproject` file and use "Generate Visual Studio Project files".
     3. Rebuild your project.
 
-### Usage
+### C++ Usage
 
 Schedule some work to spread across frames, call the `ScheduleWork` function and bind a lambda for the work that needs to be done.
 
@@ -85,6 +92,7 @@ UGWBManager::ScheduleWork(...).OnHandleWork([](...){ /* do work*/ })
 
 ```c++
 // EXAMPLE: loop through locatons to spawn enemies
+
 for (auto SpawnEvent : SpawnEnemiesAtLocations)
 {
     UGWBManager::ScheduleWork(
@@ -104,7 +112,17 @@ for (auto SpawnEvent : SpawnEnemiesAtLocations)
 - The GWB system will process work units one at a time (firing the lambdas) as long as there is time available in the budget (defined via cvar `gwb.budget.frame`)
 - If there is sufficient time, your work will complete in the current frame. Otherwise the work is deferred until the next frame and the next time the work loop fires.
 
-You can also do this in Blueprints:
+```c++
+// EXAMPLE: abort work
+
+FGWBWorkUnitHandle Work = UGWBManager::ScheduleWork(this, "Spawning", FGWBWorkOptions::EmptyOptions);
+
+Work.OnHandleWork([SpawnEvent](const float DeltaTime, const FGWBWorkUnitHandle& Handle){ /**/ };
+
+UGWBManager::AbortWorkUnit(this, Work); // <= if work isn't already done, de-schedules it
+```
+
+### Blueprint Usage
 
 [![BP Usage][blueprint-usage]](/)
 
@@ -200,7 +218,7 @@ You can define work groups and their budgets in your INI like so:
 - **Why did you make this?** When we had to port Godfall, a PS5 title, to work on the lower spec PS4, we needed a method to handle the 100s of blueprints and gameplay effects that caused frame spikes here and there but most of the time were not using up a lot of time. We found that in 80% of the cases it was totally fine to let some of this work happen a frame or two later.
 - **I'm using this GWB thing and my game is still slow! What gives?** The GWB does not improve performance. It simply distributes your existing poorly performing code over multiple frames to prevent FPS drops. This ONLY works if you have room in your frame budget (i.e. your game is running at like 90 FPS most of the time, and then has moments where it drops to 20 because of some heavy mass actor spawns or similar spiky gameplay code).
 - **Does this use multiple threads?** No. Everything still runs on the game thread.
-- **Shouldn't I just use multiple threads?** You can't multi-thead a lot of gameplay code (actor lifecycle) and blueprint code, and multi-threading is overkill for having a small frame spike here and there.
+- **Shouldn't I just use multiple threads?** You can't multi-thead a lot of gameplay code (actor lifecycle) and blueprint code. Also, multi-threading is overkill for having a small frame spike here and there.
 - **I heard ECS is great, I can just use that right?** You could totally use ECS to defer work and roll your own system to manage jobs across frames. The GWB kind of does that without ECS and is intended to be peppered throughout standard unreal gameplay code (actor land).
 - **Should I use this for all my gameplay stuff?** Probably not. Use sparingly when you need to optimize some specific part of your game that causes frame spikes.
 
@@ -208,7 +226,7 @@ You can define work groups and their budgets in your INI like so:
 
 ## Related Similar Implementations
 
-**`LatentTickTimeBudget` in ue5coro** [Link](https://github.com/landelare/ue5coro/blob/master/Docs/LatentTickTimeBudget.md) - this is a great tool if you don't need a global manager, groups, and other bells and whistles (the time slicers module in this repo has sort of a similar API).
+**`LatentTickTimeBudget` in ue5coro** [Link](https://github.com/landelare/ue5coro/blob/master/Docs/LatentTickTimeBudget.md) - this is a great tool if you don't need a global manager, groups, aborting, and other bells and whistles (the time slicers module in this repo has sort of a similar API).
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
@@ -243,7 +261,7 @@ void MyFunctionWithABigExpensiveLoop()
 
 ### Budgeted For Loop
 
-Under the hood uses time slicers and wraps it in a macro.
+BUDGETED_FOR_LOOP uses time slicers under the hood and wraps it in a macro.
 
 ```c++
 BUDGETED_FOR_LOOP(
@@ -291,7 +309,7 @@ Distributed under the MIT License. See `LICENSE` for more information.
 <!-- ACKNOWLEDGMENTS -->
 ## Acknowledgments
 
-* Collin Hover - built the original version of this plugin at Counterplay Games. The original version had deep integration with our custom promise library and a lot more features we haven't implemented as extensions into this plugin yet.
+* Collin Hover built the original version of this plugin at Counterplay Games. That version had deep integration with our custom promise library and a lot more features (for example: reprioritization) we haven't implemented as extensions into this plugin yet.
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
@@ -312,10 +330,9 @@ Distributed under the MIT License. See `LICENSE` for more information.
 [license-url]: https://github.com/eanticev/UE-GameplayWorkBalancer/blob/master/LICENSE
 [linkedin-shield]: https://img.shields.io/badge/-LinkedIn-black.svg?style=for-the-badge&logo=linkedin&colorB=555
 [linkedin-url]: https://linkedin.com/in/emilanticevic/
-[product-screenshot]: Resources/demo-with-buffers.webp
-[step-1]: Resources/convert-geometry-collection-to-ndd.webp
-[step-2]: Resources/drop-blueprint-into-level.webp
-[step-3]: Resources/use-ndd-debugger.webp
+
+[product-screenshot]: Resources/gwb_preview_card.gif
+[explainer-image]: Resources/explainer.png
 
 [blueprint-usage]: Resources/blueprint_usage.png
 [blueprint-context-capture]: Resources/blueprint_context_capture.png
