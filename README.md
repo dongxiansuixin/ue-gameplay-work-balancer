@@ -13,7 +13,7 @@
 <br />
 <div align="center">
   <a href="https://github.com/eanticev/ue-gameplay-work-balancer">
-    <img src="Resources/Logo.png" alt="Logo" width="80" height="80">
+    <img src="Resources/logo.png" alt="Logo" width="80" height="80">
   </a>
   <h3 align="center">Gameplay Work Balancer</h3>
   <p align="center">Unreal Engine Plugin that helps you spread work (time slice it) across multiple frames so that your game does not exceed it's intended frame budget and maintains a stable frame rate (FPS).
