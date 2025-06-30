@@ -18,3 +18,11 @@ void FGWBWorkUnitHandle::OnHandleWork(TFunction<void(const float DeltaTime, cons
 		}
 	}
 }
+
+void FGWBWorkUnitHandle::OnHandleWork(TFunction<void()> DispatchOnDoWork) const
+{
+	OnHandleWork([DispatchOnDoWork](const float, const FGWBWorkUnitHandle&)
+	{
+		DispatchOnDoWork();
+	});
+}

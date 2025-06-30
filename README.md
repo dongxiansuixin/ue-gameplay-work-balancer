@@ -87,7 +87,7 @@ Gameplay Work Balancer (GWB) is an Unreal Engine plugin that allows you to defin
 Schedule some work to spread across frames, call the `ScheduleWork` function and bind a lambda for the work that needs to be done.
 
 ```c++
-UGWBManager::ScheduleWork(...).OnHandleWork([](...){ /* do work*/ })
+UGWBManager::ScheduleWork(...).OnHandleWork([](){ /* do work*/ })
 ```
 
 ```c++
@@ -99,7 +99,7 @@ for (auto SpawnEvent : SpawnEnemiesAtLocations)
         this, // world context object
         "Spawning", // work group
         FGWBWorkOptions::EmptyOptions // options
-    ).OnHandleWork([SpawnEvent](const float DeltaTime, const FGWBWorkUnitHandle& Handle){
+    ).OnHandleWork([SpawnEvent](const float TimeSinceScheduled, const FGWBWorkUnitHandle& Handle){
         // start of work
         auto Enemy = ExpensiveSpawnEnemyFunction(SpawnEvent);
         Enemy.AnotherExpensiveThing();
@@ -117,7 +117,7 @@ for (auto SpawnEvent : SpawnEnemiesAtLocations)
 
 FGWBWorkUnitHandle Work = UGWBManager::ScheduleWork(this, "Spawning", FGWBWorkOptions::EmptyOptions);
 
-Work.OnHandleWork([SpawnEvent](const float DeltaTime, const FGWBWorkUnitHandle& Handle){ /**/ };
+Work.OnHandleWork([SpawnEvent](){ /**/ };
 
 UGWBManager::AbortWorkUnit(this, Work); // <= if work isn't already done, de-schedules it
 ```
@@ -301,7 +301,7 @@ Distributed under the MIT License. See `LICENSE` for more information.
 ## Contact
 
 - Emil Anticevic - [@eanticev](https://twitter.com/eanticev)
-- Collin Hover - [@ckhover](https://twitter.com/ckhover)
+- Collin Hover - [@ckhover](https://twitter.com/CollinHover)
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 

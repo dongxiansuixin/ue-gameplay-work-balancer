@@ -30,6 +30,9 @@ struct GWBRUNTIME_API FGWBWorkUnitHandle
 	/** Provide the function that will do work when there is room in the budget. */
 	void OnHandleWork(TFunction<void(const float DeltaTime, const FGWBWorkUnitHandle& Handle)> DispatchOnDoWork) const;
 
+	/** Provide the function that will do work when there is room in the budget (no parameters needed). */
+	void OnHandleWork(TFunction<void()> DispatchOnDoWork) const;
+
 	/** Get the delegate that will broadcast when there is room in the budget to do some work. */
 	FORCEINLINE FGWBOnDoWorkDelegate& GetWorkCallback() const { return WorkUnitCallbackHandle.Get()->WorkCallback; }
 
