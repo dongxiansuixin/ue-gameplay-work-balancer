@@ -1,7 +1,7 @@
 ﻿#include "DataTypes/GWBWorkUnitHandle.h"
 #include "GWBRuntimeModule.h"
 
-void FGWBWorkUnitHandle::OnHandleWork(TFunction<void(const float DeltaTime, const FGWBWorkUnitHandle& Handle)> DispatchOnDoWork) const
+void FGWBWorkUnitHandle::OnHandleWork(TFunction<void(const float TimeSinceScheduled, const FGWBWorkUnitHandle& Handle)> DispatchOnDoWork) const
 {
 	if (bShouldAutoFire)
 	{
@@ -11,9 +11,9 @@ void FGWBWorkUnitHandle::OnHandleWork(TFunction<void(const float DeltaTime, cons
 		FCriticalSection CriticalSection;
 		{
 			FScopeLock Lock(&CriticalSection);
-			GetWorkCallback().BindLambda([DispatchOnDoWork](float DeltaTime, const FGWBWorkUnitHandle& Handle)
+			GetWorkCallback().BindLambda([DispatchOnDoWork](float TimeSinceScheduled, const FGWBWorkUnitHandle& Handle)
 			{
-				DispatchOnDoWork(DeltaTime, Handle);
+				DispatchOnDoWork(TimeSinceScheduled, Handle);
 			});
 		}
 	}

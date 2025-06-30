@@ -98,8 +98,8 @@ void UGWBManager::AbortWorkUnit(const UObject* WorldContextObject, FGWBWorkUnitH
 
 void UGWBManager::BindBlueprintCallback(FGWBWorkUnitHandle& Handle, const FGWBBlueprintWorkDelegate& OnDoWork)
 {
-	Handle.OnHandleWork([OnDoWork](float DeltaTime, const FGWBWorkUnitHandle& Handle) {
-		OnDoWork.ExecuteIfBound(DeltaTime, Handle);
+	Handle.OnHandleWork([OnDoWork](float TimeSinceScheduled, const FGWBWorkUnitHandle& Handle) {
+		OnDoWork.ExecuteIfBound(TimeSinceScheduled, Handle);
 	});
 }
 
