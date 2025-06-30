@@ -16,7 +16,7 @@
     <img src="Resources/logo.png" alt="Logo" width="80" height="80">
   </a>
   <h3 align="center">Gameplay Work Balancer</h3>
-  <p align="center">Unreal Engine Plugin that helps you spread work (time slice it) across multiple frames so that your game does not exceed it's intended frame budget and maintains a stable frame rate (FPS).
+  <p align="center">Unreal Engine Plugin that helps you spread work (time slice it) across multiple frames so that your game does not exceed its intended frame budget and maintains a stable frame rate (FPS).
     <br />
     <br />
     <a href="#Getting-Started">Getting Started</a>
@@ -34,7 +34,7 @@
 
 [![Product Name Screen Shot][product-screenshot]](/)
 
-Gameplay Work Balancer (GWB) is an Unreal Engine plugin that allows you to define a time budget and schedule units of work that need to be performed. The balancer will spread the work (time slice it) across multiple frames so that your game does not exceed it's intended frame budget and maintains a stable frame rate (FPS).
+Gameplay Work Balancer (GWB) is an Unreal Engine plugin that allows you to define a time budget and schedule units of work that need to be performed. The balancer will spread the work (time slice it) across multiple frames so your game does not exceed its intended frame budget and maintains a stable frame rate (FPS).
 
 ### ⚙️ How does it work?
 
@@ -48,11 +48,11 @@ Gameplay Work Balancer (GWB) is an Unreal Engine plugin that allows you to defin
 ### 🤔 Why do I need this?
 
 - Unreal Engine is still single threaded for the purpose of "gameplay" code, most of blueprint code, and code that deals with actor lifecycle.
-- You will inevitable run into cases where it's impractical to multi-thread of even optimize the code, but instead you just need to spread the work out to avoid spikey frames and FPS drops.
+- You will inevitably run into cases where it's impractical to multi-thread or even optimize the code, but instead you just need to spread the work out to avoid spiky frames and FPS drops.
 
 ### 🎯 When should I use this?
-- Distrubute spawning VFX across multiple frames for bullet impacts so that visual side-effects don't cause frame spikes.
-- Distribute cleanup / destruction of actors across multiple frames so that (for example) enemies dying doesn't cause frame spikes.
+- Distribute spawning VFX across multiple frames for bullet impacts so that visual side-effects don't cause frame spikes.
+- Distribute cleanup / destruction of actors across multiple frames so that (for example) enemies dying don't cause frame spikes.
 - Distribute spawning a large number of far away actors across multiple frames.
 
 ### ❌ What is this NOT?
@@ -79,7 +79,7 @@ Gameplay Work Balancer (GWB) is an Unreal Engine plugin that allows you to defin
 * **Prerequisites**
     * Unreal Engine Project with C++ enabled.
     * Recommended Engine Version 5.4 or above
-* **Instalation**
+* **Installation**
     1. Drop the `GWB` plugin into your Game's `/Plugins` directory.
     2. Right click your `uproject` file and use "Generate Visual Studio Project files".
     3. Rebuild your project.
@@ -93,7 +93,7 @@ UGWBManager::ScheduleWork(...).OnHandleWork([](){ /* do work*/ })
 ```
 
 ```c++
-// EXAMPLE: loop through locatons to spawn enemies
+// EXAMPLE: loop through locations to spawn enemies
 
 for (auto SpawnEvent : SpawnEnemiesAtLocations)
 {
@@ -119,7 +119,7 @@ for (auto SpawnEvent : SpawnEnemiesAtLocations)
 
 FGWBWorkUnitHandle Work = UGWBManager::ScheduleWork(this, "Spawning", FGWBWorkOptions::EmptyOptions);
 
-Work.OnHandleWork([SpawnEvent](){ /**/ };
+Work.OnHandleWork([SpawnEvent](){ /* work code */ });
 
 UGWBManager::AbortWorkUnit(this, Work); // <= if work isn't already done, de-schedules it
 ```
@@ -139,7 +139,7 @@ Here's a more elaborate example:
 
 [![BP Usage: For Loop With Capture][blueprint-usage-array]](/)
 
-You can disable the system globally by setting the cvar **gwb.enabled** to `false`. When disabled, GWB just immediatelly triggers the work when it's scheduled (as if though it doesn't exist). This is helpful when debugging and you want things to happen in the same stack frame.
+You can disable the system globally by setting the cvar **gwb.enabled** to `false`. When disabled, GWB just immediately triggers the work when it's scheduled (as if it doesn't exist). This is helpful when debugging and you want things to happen in the same stack frame.
 
 ### 📚 Examples
 
@@ -223,7 +223,7 @@ You can define work groups and their budgets in your INI like so:
 - **Why did you make this?** When we had to port Godfall, a PS5 title, to work on the lower spec PS4, we needed a method to handle the 100s of blueprints and gameplay effects that caused frame spikes here and there but most of the time were not using up a lot of time. We found that in 80% of the cases it was totally fine to let some of this work happen a frame or two later.
 - **I'm using this GWB thing and my game is still slow! What gives?** The GWB does not improve performance. It simply distributes your existing poorly performing code over multiple frames to prevent FPS drops. This ONLY works if you have room in your frame budget (i.e. your game is running at like 90 FPS most of the time, and then has moments where it drops to 20 because of some heavy mass actor spawns or similar spiky gameplay code).
 - **Does this use multiple threads?** No. Everything still runs on the game thread.
-- **Shouldn't I just use multiple threads?** You can't multi-thead a lot of gameplay code (actor lifecycle) and blueprint code. Also, multi-threading is overkill for having a small frame spike here and there.
+- **Shouldn't I just use multiple threads?** You can't multi-thread a lot of gameplay code (actor lifecycle) and blueprint code. Also, multi-threading is overkill for having a small frame spike here and there.
 - **I heard ECS is great, I can just use that right?** You could totally use ECS to defer work and roll your own system to manage jobs across frames. The GWB kind of does that without ECS and is intended to be peppered throughout standard unreal gameplay code (actor land).
 - **Should I use this for all my gameplay stuff?** Probably not. Use sparingly when you need to optimize some specific part of your game that causes frame spikes.
 
@@ -287,7 +287,7 @@ BUDGETED_FOR_LOOP(
 
 ### 🧩 Extensions
 
-The Gameplay Work Balancer supports extensions that can change the default behavior. You can register modifiers that mutate the frame budgets or priorority of items before the work loop. We provide one example modifier `FFrameBudgetEscalationModifierImpl` which increases the frame budget by a fixed small value when it's exceeded so that if we do don't have a big work backup but rather a slight FPS drop. The escalation then decays each frame that we don't hit the maximum budget. This grants the system some elasticity to avoid balooning  work unit backlogs.
+The Gameplay Work Balancer supports extensions that can change the default behavior. You can register modifiers that mutate the frame budgets or priority of items before the work loop. We provide one example modifier `FFrameBudgetEscalationModifierImpl` which increases the frame budget by a fixed small value when it's exceeded so that if we don't have a big work backup but rather a slight FPS drop. The escalation then decays each frame that we don't hit the maximum budget. This grants the system some elasticity to avoid ballooning  work unit backlogs.
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
