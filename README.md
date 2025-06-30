@@ -36,7 +36,7 @@
 
 Gameplay Work Balancer (GWB) is an Unreal Engine plugin that allows you to define a time budget and schedule units of work that need to be performed. The balancer will spread the work (time slice it) across multiple frames so that your game does not exceed it's intended frame budget and maintains a stable frame rate (FPS).
 
-### How does it work?
+### ⚙️ How does it work?
 
 <details>
 <summary>Expand for an explainer diagram</summary>
@@ -45,26 +45,25 @@ Gameplay Work Balancer (GWB) is an Unreal Engine plugin that allows you to defin
 
 </details>
 
-### Why do I need this?
+### 🤔 Why do I need this?
 
 - Unreal Engine is still single threaded for the purpose of "gameplay" code, most of blueprint code, and code that deals with actor lifecycle.
 - You will inevitable run into cases where it's impractical to multi-thread of even optimize the code, but instead you just need to spread the work out to avoid spikey frames and FPS drops.
 
-### When should I use this?
+### 🎯 When should I use this?
 - Distrubute spawning VFX across multiple frames for bullet impacts so that visual side-effects don't cause frame spikes.
 - Distribute cleanup / destruction of actors across multiple frames so that (for example) enemies dying doesn't cause frame spikes.
 - Distribute spawning a large number of far away actors across multiple frames.
 
-### What is this NOT?
+### ❌ What is this NOT?
 - This system does NOT improve performance... at all. It just distributes work. This implies your game has to run at your target FPS most of the time. If your game is already running at like 15 FPS then distributing the work will prevent it from spiking to 5 FPS but will not make your game run faster.
 - This is not a multi-threading framework. Everything still runs on the game thread.
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
 
-# Roadmap
+# 🗺️ Roadmap
 
-* [ ] Improve singleton usage across UWorld lifecycle in both editor and game.
 * [ ] Improve singleton usage across UWorld lifecycle in both editor and game.
 * [x] Release v0.9.
 
@@ -72,8 +71,9 @@ Gameplay Work Balancer (GWB) is an Unreal Engine plugin that allows you to defin
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
 
-# Getting Started
+# 🚀 Getting Started
 
+> [!NOTE]
 > This project was tested with UE 5.5.4.
 
 * **Prerequisites**
@@ -84,7 +84,7 @@ Gameplay Work Balancer (GWB) is an Unreal Engine plugin that allows you to defin
     2. Right click your `uproject` file and use "Generate Visual Studio Project files".
     3. Rebuild your project.
 
-### C++ Usage
+### 💻 C++ Usage
 
 Schedule some work to spread across frames, call the `ScheduleWork` function and bind a lambda for the work that needs to be done.
 
@@ -124,11 +124,14 @@ Work.OnHandleWork([SpawnEvent](){ /**/ };
 UGWBManager::AbortWorkUnit(this, Work); // <= if work isn't already done, de-schedules it
 ```
 
-### Blueprint Usage
+### 🔷 Blueprint Usage
 
 [![BP Usage][blueprint-usage]](/)
 
-Note that the custom K2 node provides a neat feature where it LATENTLY passes through the context pin. This means you can rely on that pin having the correct value when DoWork is triggered like so:
+> [!TIP]
+> Use the Context pin to pass through values to the latent output pins.
+
+The custom K2 node provides a neat feature where it LATENTLY passes through the context pin. This means you can rely on that pin having the correct value when DoWork is triggered like so:
 
 [![BP Usage: Context Value Capture][blueprint-context-capture]](/)
 
@@ -138,16 +141,16 @@ Here's a more elaborate example:
 
 You can disable the system globally by setting the cvar **gwb.enabled** to `false`. When disabled, GWB just immediatelly triggers the work when it's scheduled (as if though it doesn't exist). This is helpful when debugging and you want things to happen in the same stack frame.
 
-### Examples
+### 📚 Examples
 
-* [LINK] Schedule work into multiple groups each with their own budget.
-* [LINK] Do work for 5ms or until a max of 10 jobs are processed each frame.
-* [LINK] Guarantee a unit of work is done within 10 frames or 500ms of being scheduled.
-* [LINK] Increase budget each time there is too much work to elastically degrade FPS.
+* [Schedule work into multiple groups each with their own budget](Docs/example-multiple-work-groups.md)
+* [Do work for 5ms or until a max of 10 jobs are processed each frame](Docs/example-time-and-count-budgets.md)
+* [Guarantee a unit of work is done within 10 frames or 500ms of being scheduled](Docs/example-work-guarantees.md)
+* [Increase budget each time there is too much work to elastically degrade FPS](Docs/example-elastic-budget-escalation.md)
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
-## Advanced Options
+## ⚡ Advanced Options
 
 - Define the `gwb.budget.count` to add an additional maximum count of work units allowed per frame.
 - Use Work Groups to define budgets for categories of work.
@@ -157,15 +160,15 @@ You can disable the system globally by setting the cvar **gwb.enabled** to `fals
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
-## Configuration
+## ⚙️ Configuration
 
 You can control the system via CVars and INI settings. There are some sensible defaults for most of the configuration but you should likely spend the time to refine for your project.
 
-### Console Variables Reference
+### 🎛️ Console Variables Reference
 
 | Variable                  | Type  | Default | Description                                                                                                                                                                                                                   |
 |---------------------------|-------|---------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `gwb.enabled`             | bool  | `true`  | Whether balancer is enabled.                                                                                                                                                                                                  |
+| `gwb.enabled`             | bool  | `true`  | Whether balancer is enabled. When disabled it executes the work as soon as scheduled.                                                                                                                                                                                                 |
 | `gwb.budget.frame`        | float | `0.005` | Time in seconds balancer may spend per frame doing work (negative values mean infinite budget). It is recommended to customize this budget per platform (i.e. slower platforms may need higher budgets to avoid work delays). |
 | `gwb.budget.count`        | int32 | `-1`    | Max number of units of work allowed per work cycle (frame). Negative values mean infinite.                                                                                                                                    |
 | `gwb.schedule.interval`   | float | `0.0`   | Time in seconds between balancer work frames, where 0 indicates every frame.                                                                                                                                                  |
@@ -175,7 +178,7 @@ You can control the system via CVars and INI settings. There are some sensible d
 | `gwb.escalation.duration` | float | `0.5`   | How quickly in seconds escalation should scale up.                                                                                                                                                                            |
 | `gwb.escalation.decay`    | float | `0.5`   | How quickly in seconds escalation should scale down.                                                                                                                                                                          |
 
-### GameplayWorkGroups INI Configuration
+### 📝 GameplayWorkGroups INI Configuration
 
 You can define work groups and their budgets in your INI like so:
 
@@ -197,7 +200,7 @@ You can define work groups and their budgets in your INI like so:
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
 
-## Debugging
+## 🐛 Debugging
 
 * When you disable the balancer via `gwb.enabled` CVar, it acts as a passthrough system with no deferral.
 * Enable verbose logging for category `Log_GameplayWorkBalancer`.
@@ -215,7 +218,7 @@ You can define work groups and their budgets in your INI like so:
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
-## FAQ
+## ❓ FAQ
 
 - **Why did you make this?** When we had to port Godfall, a PS5 title, to work on the lower spec PS4, we needed a method to handle the 100s of blueprints and gameplay effects that caused frame spikes here and there but most of the time were not using up a lot of time. We found that in 80% of the cases it was totally fine to let some of this work happen a frame or two later.
 - **I'm using this GWB thing and my game is still slow! What gives?** The GWB does not improve performance. It simply distributes your existing poorly performing code over multiple frames to prevent FPS drops. This ONLY works if you have room in your frame budget (i.e. your game is running at like 90 FPS most of the time, and then has moments where it drops to 20 because of some heavy mass actor spawns or similar spiky gameplay code).
@@ -226,15 +229,15 @@ You can define work groups and their budgets in your INI like so:
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
-## Related Similar Implementations
+## 🔗 Related Similar Implementations
 
 **`LatentTickTimeBudget` in ue5coro** [Link](https://github.com/landelare/ue5coro/blob/master/Docs/LatentTickTimeBudget.md) - this is a great tool if you don't need a global manager, groups, aborting, and other bells and whistles (the time slicers module in this repo has sort of a similar API).
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
-## Under the Hood
+## 🔍 Under the Hood
 
-### Time Slicers
+### ⏱️ Time Slicers
 
 Inside the module **GWBTimeSlicer** you will find some useful utilities for simplified budget and time management.
 
@@ -261,7 +264,7 @@ void MyFunctionWithABigExpensiveLoop()
 }
 ```
 
-### Budgeted For Loop
+### 🔄 Budgeted For Loop
 
 BUDGETED_FOR_LOOP uses time slicers under the hood and wraps it in a macro.
 
@@ -282,7 +285,7 @@ BUDGETED_FOR_LOOP(
 });
 ```
 
-### Extensions
+### 🧩 Extensions
 
 The Gameplay Work Balancer supports extensions that can change the default behavior. You can register modifiers that mutate the frame budgets or priorority of items before the work loop. We provide one example modifier `FFrameBudgetEscalationModifierImpl` which increases the frame budget by a fixed small value when it's exceeded so that if we do don't have a big work backup but rather a slight FPS drop. The escalation then decays each frame that we don't hit the maximum budget. This grants the system some elasticity to avoid balooning  work unit backlogs.
 
@@ -291,7 +294,7 @@ The Gameplay Work Balancer supports extensions that can change the default behav
 
 
 <!-- LICENSE -->
-## License
+## 📄 License
 
 Distributed under the MIT License. See `LICENSE` for more information.
 
@@ -300,7 +303,7 @@ Distributed under the MIT License. See `LICENSE` for more information.
 
 
 <!-- CONTACT -->
-## Contact
+## 📞 Contact
 
 - Emil Anticevic - [@eanticev](https://twitter.com/eanticev)
 - Collin Hover - [@ckhover](https://twitter.com/CollinHover)
@@ -309,7 +312,7 @@ Distributed under the MIT License. See `LICENSE` for more information.
 
 
 <!-- ACKNOWLEDGMENTS -->
-## Acknowledgments
+## 🙏 Acknowledgments
 
 * Collin Hover built the original version of this plugin at Counterplay Games. That version had deep integration with our custom promise library and a lot more features (for example: reprioritization) we haven't implemented as extensions into this plugin yet.
 
