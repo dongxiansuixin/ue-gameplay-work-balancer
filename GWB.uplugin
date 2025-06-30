@@ -32,7 +32,7 @@
 		},
 		{
 			"Name": "GWBEditor",
-			"Type": "Editor",
+			"Type": "UncookedOnly",
 			"LoadingPhase": "Default"
 		}
 	]

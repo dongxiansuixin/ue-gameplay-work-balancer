@@ -404,84 +404,92 @@ void UK2Node_GWBScheduleWork::ExpandNode(class FKismetCompilerContext& CompilerC
 	CompilerContext.MovePinLinksToIntermediate(*OnDoWorkPin, *EventThenPin);
 	CompilerContext.MovePinLinksToIntermediate(*DeltaTimePin, *EventDeltaTimePinOut);
 
-	if (bHasValidContext)
+	const auto GetFunctionNameForContext = UGWBWildcardValueCache::GetFindFunctionName(ContextType.PinCategory, ContextType.PinSubCategoryObject.Get());
+	if (bHasValidContext && GetFunctionNameForContext.IsEmpty())
 	{
-		// Get the ID of the work handle pin coming out of our schedule work node
-		UK2Node_CallFunction* GetWorkUnitHandleIdNode = CompilerContext.SpawnIntermediateNode<UK2Node_CallFunction>(this, SourceGraph);
-		GetWorkUnitHandleIdNode->FunctionReference.SetExternalMember(FName("GetWorkUnitHandleId"), UGWBWildcardValueCache::StaticClass());
-		GetWorkUnitHandleIdNode->bDefaultsToPureFunc = true;
-		GetWorkUnitHandleIdNode->AllocateDefaultPins();
-		UEdGraphPin* GetWorkUnitHandleIdInputPin = GetWorkUnitHandleIdNode->FindPin(TEXT("Handle"));
-		UEdGraphPin* WorkUnitHandleReturnedIdPin = GetWorkUnitHandleIdNode->FindPin(TEXT("ReturnValue"));
-		ScheduleWorkReturnPin->MakeLinkTo(GetWorkUnitHandleIdInputPin);
-		
-		const auto FunctionName_Assign = UGWBWildcardValueCache::GetAssignFunctionName(ContextType.PinCategory, ContextType.PinSubCategoryObject.Get());
-		UK2Node_CallFunction* MapAddNode = CompilerContext.SpawnIntermediateNode<UK2Node_CallFunction>(this, SourceGraph);
-		MapAddNode->FunctionReference.SetExternalMember(FName(FunctionName_Assign), UGWBWildcardValueCache::StaticClass());
-		MapAddNode->AllocateDefaultPins();
-		UEdGraphPin* AddMapKeyExec = MapAddNode->GetExecPin();
-		UEdGraphPin* AddMapKeyPin = MapAddNode->FindPin(TEXT("Key"));
-		UEdGraphPin* AddMapValuePin = MapAddNode->FindPin(TEXT("Value"));
-		UEdGraphPin* AddMapKeyThen = MapAddNode->GetThenPin();
-
-		CompilerContext.MovePinLinksToIntermediate(*ContextInputPin, *AddMapValuePin);
-		WorkUnitHandleReturnedIdPin->MakeLinkTo(AddMapKeyPin); // AddMapKeyPin->DefaultValue = FString::FromInt(this->GetUniqueID()); // TODO: use WorkUnitHandle GetId for this
-
-		// inject the cache assignment between schedule and bind callback pins by rewiring:
-		CompilerContext.MovePinLinksToIntermediate(*BindCallbackNode->GetExecPin(), *AddMapKeyExec);
-		AddMapKeyThen->MakeLinkTo(BindCallbackNode->GetExecPin());
-
-		CompilerContext.MessageLog.Note(TEXT("Found ADD Pins @@, @@"), AddMapKeyPin, AddMapValuePin);
+		CompilerContext.MessageLog.Error(TEXT("The type provided for the Context pin is not supported"));
 	}
-	
-	// if we have a captured context value, rewire things a bot
-	if (bHasValidContext)
+	else if (bHasValidContext)
 	{
-		// Get the ID of the work handle pin coming out of our event node
-		UK2Node_CallFunction* GetWorkUnitHandleIdNode = CompilerContext.SpawnIntermediateNode<UK2Node_CallFunction>(this, SourceGraph);
-		GetWorkUnitHandleIdNode->FunctionReference.SetExternalMember(FName("GetWorkUnitHandleId"), UGWBWildcardValueCache::StaticClass());
-		GetWorkUnitHandleIdNode->bDefaultsToPureFunc = true;
-		GetWorkUnitHandleIdNode->AllocateDefaultPins();
-		UEdGraphPin* GetWorkUnitHandleIdInputPin = GetWorkUnitHandleIdNode->FindPin(TEXT("Handle"));
-		UEdGraphPin* WorkUnitHandleReturnedIdPin = GetWorkUnitHandleIdNode->FindPin(TEXT("ReturnValue"));
-		EventWorkHandlePinOut->MakeLinkTo(GetWorkUnitHandleIdInputPin);
+		// build node graph to assign / capture context to cache
+		{
+			// Get the ID of the work handle pin coming out of our schedule work node
+			UK2Node_CallFunction* GetWorkUnitHandleIdNode = CompilerContext.SpawnIntermediateNode<UK2Node_CallFunction>(this, SourceGraph);
+			GetWorkUnitHandleIdNode->FunctionReference.SetExternalMember(FName("GetWorkUnitHandleId"), UGWBWildcardValueCache::StaticClass());
+			GetWorkUnitHandleIdNode->bDefaultsToPureFunc = true;
+			GetWorkUnitHandleIdNode->AllocateDefaultPins();
+			UEdGraphPin* GetWorkUnitHandleIdInputPin = GetWorkUnitHandleIdNode->FindPin(TEXT("Handle"));
+			UEdGraphPin* WorkUnitHandleReturnedIdPin = GetWorkUnitHandleIdNode->FindPin(TEXT("ReturnValue"));
+			ScheduleWorkReturnPin->MakeLinkTo(GetWorkUnitHandleIdInputPin);
 		
-		const auto FunctionName_Find = UGWBWildcardValueCache::GetFindFunctionName(ContextType.PinCategory, ContextType.PinSubCategoryObject.Get());
-		UK2Node_CallFunction* MapFindNode = CompilerContext.SpawnIntermediateNode<UK2Node_CallFunction>(this, SourceGraph);
-		MapFindNode->FunctionReference.SetExternalMember(FName(FunctionName_Find), UGWBWildcardValueCache::StaticClass());
-		MapFindNode->AllocateDefaultPins();
-		UEdGraphPin* MapFindExecPin = MapFindNode->GetExecPin();
-		UEdGraphPin* MapFindKeyPin = MapFindNode->FindPin(TEXT("Key"));
-		UEdGraphPin* MapFindReturnValuePin = MapFindNode->FindPin(TEXT("ReturnValue"));
-		UEdGraphPin* MapFindThenPin = MapFindNode->GetThenPin();
-		WorkUnitHandleReturnedIdPin->MakeLinkTo(MapFindKeyPin); // MapFindKeyPin->DefaultValue = FString::FromInt(this->GetUniqueID())
+			const auto FunctionName_Assign = UGWBWildcardValueCache::GetAssignFunctionName(ContextType.PinCategory, ContextType.PinSubCategoryObject.Get());
+			UK2Node_CallFunction* MapAddNode = CompilerContext.SpawnIntermediateNode<UK2Node_CallFunction>(this, SourceGraph);
+			MapAddNode->FunctionReference.SetExternalMember(FName(FunctionName_Assign), UGWBWildcardValueCache::StaticClass());
+			MapAddNode->AllocateDefaultPins();
+			UEdGraphPin* AddMapKeyExec = MapAddNode->GetExecPin();
+			UEdGraphPin* AddMapKeyPin = MapAddNode->FindPin(TEXT("Key"));
+			UEdGraphPin* AddMapValuePin = MapAddNode->FindPin(TEXT("Value"));
+			UEdGraphPin* AddMapKeyThen = MapAddNode->GetThenPin();
 
-		CompilerContext.MessageLog.Note(TEXT("Found FIND Pins @@"), MapFindKeyPin);
+			CompilerContext.MovePinLinksToIntermediate(*ContextInputPin, *AddMapValuePin);
+			WorkUnitHandleReturnedIdPin->MakeLinkTo(AddMapKeyPin); // AddMapKeyPin->DefaultValue = FString::FromInt(this->GetUniqueID()); // TODO: use WorkUnitHandle GetId for this
 
-		// make a sequence node we so we can remove the cached captured value after we invoke the DoWork code
-		UK2Node_ExecutionSequence* SequenceNode = CompilerContext.SpawnIntermediateNode<UK2Node_ExecutionSequence>(this, SourceGraph);
-		SequenceNode->AllocateDefaultPins();
-		SequenceNode->ReconstructNode();
-		UEdGraphPin* SequenceExecPin = SequenceNode->GetExecPin();
-		UEdGraphPin* FirstSequenceThenPin = SequenceNode->GetThenPinGivenIndex(0);
-		UEdGraphPin* SecondSequenceThenPin = SequenceNode->GetThenPinGivenIndex(1);
+			// inject the cache assignment between schedule and bind callback pins by rewiring:
+			CompilerContext.MovePinLinksToIntermediate(*BindCallbackNode->GetExecPin(), *AddMapKeyExec);
+			AddMapKeyThen->MakeLinkTo(BindCallbackNode->GetExecPin());
 
-		// step 2. rewire the context retreival to the context output
-		// EventThenPin -> SequenceExecPin -> FirstSequenceThenPin -> MapFindExecPin -> MapFindThenPin
-		CompilerContext.MovePinLinksToIntermediate(*EventThenPin, *MapFindThenPin);
-		CompilerContext.MovePinLinksToIntermediate(*ContextOutputPin, *MapFindReturnValuePin);
-		EventThenPin->MakeLinkTo(SequenceExecPin);
-		FirstSequenceThenPin->MakeLinkTo(MapFindExecPin);
+			// CompilerContext.MessageLog.Note(TEXT("Found ADD Pins @@, @@"), AddMapKeyPin, AddMapValuePin);
+		}
 
-		// finally wire the second sequence then pin to a function call to remove the captured context value
-		const auto FunctionName_Remove = UGWBWildcardValueCache::GetRemoveFunctionName(ContextType.PinCategory, ContextType.PinSubCategoryObject.Get());
-		UK2Node_CallFunction* RemoveWildcardCacheItemFunctionNode = CompilerContext.SpawnIntermediateNode<UK2Node_CallFunction>(this, SourceGraph);
-		RemoveWildcardCacheItemFunctionNode->FunctionReference.SetExternalMember(FName(FunctionName_Remove), UGWBWildcardValueCache::StaticClass());
-		RemoveWildcardCacheItemFunctionNode->AllocateDefaultPins();
-		UEdGraphPin* RemoveKeyPin = RemoveWildcardCacheItemFunctionNode->FindPin(TEXT("Key"));
-		UEdGraphPin* RemoveExecPin = RemoveWildcardCacheItemFunctionNode->GetExecPin();
-		WorkUnitHandleReturnedIdPin->MakeLinkTo(RemoveKeyPin); // Key (ID)
-		SecondSequenceThenPin->MakeLinkTo(RemoveExecPin);
+		// build node graph to retrieve the captured context from the cache
+		{
+			// Get the ID of the work handle pin coming out of our event node
+			UK2Node_CallFunction* GetWorkUnitHandleIdNode = CompilerContext.SpawnIntermediateNode<UK2Node_CallFunction>(this, SourceGraph);
+			GetWorkUnitHandleIdNode->FunctionReference.SetExternalMember(FName("GetWorkUnitHandleId"), UGWBWildcardValueCache::StaticClass());
+			GetWorkUnitHandleIdNode->bDefaultsToPureFunc = true;
+			GetWorkUnitHandleIdNode->AllocateDefaultPins();
+			UEdGraphPin* GetWorkUnitHandleIdInputPin = GetWorkUnitHandleIdNode->FindPin(TEXT("Handle"));
+			UEdGraphPin* WorkUnitHandleReturnedIdPin = GetWorkUnitHandleIdNode->FindPin(TEXT("ReturnValue"));
+			EventWorkHandlePinOut->MakeLinkTo(GetWorkUnitHandleIdInputPin);
+			
+			const auto FunctionName_Find = UGWBWildcardValueCache::GetFindFunctionName(ContextType.PinCategory, ContextType.PinSubCategoryObject.Get());
+			UK2Node_CallFunction* MapFindNode = CompilerContext.SpawnIntermediateNode<UK2Node_CallFunction>(this, SourceGraph);
+			MapFindNode->FunctionReference.SetExternalMember(FName(FunctionName_Find), UGWBWildcardValueCache::StaticClass());
+			MapFindNode->AllocateDefaultPins();
+			UEdGraphPin* MapFindExecPin = MapFindNode->GetExecPin();
+			UEdGraphPin* MapFindKeyPin = MapFindNode->FindPin(TEXT("Key"));
+			UEdGraphPin* MapFindReturnValuePin = MapFindNode->FindPin(TEXT("ReturnValue"));
+			UEdGraphPin* MapFindThenPin = MapFindNode->GetThenPin();
+			WorkUnitHandleReturnedIdPin->MakeLinkTo(MapFindKeyPin); // MapFindKeyPin->DefaultValue = FString::FromInt(this->GetUniqueID())
+
+			// CompilerContext.MessageLog.Note(TEXT("Found FIND Pins @@"), MapFindKeyPin);
+
+			// make a sequence node we so we can remove the cached captured value after we invoke the DoWork code
+			UK2Node_ExecutionSequence* SequenceNode = CompilerContext.SpawnIntermediateNode<UK2Node_ExecutionSequence>(this, SourceGraph);
+			SequenceNode->AllocateDefaultPins();
+			SequenceNode->ReconstructNode();
+			UEdGraphPin* SequenceExecPin = SequenceNode->GetExecPin();
+			UEdGraphPin* FirstSequenceThenPin = SequenceNode->GetThenPinGivenIndex(0);
+			UEdGraphPin* SecondSequenceThenPin = SequenceNode->GetThenPinGivenIndex(1);
+
+			// step 2. rewire the context retreival to the context output
+			// EventThenPin -> SequenceExecPin -> FirstSequenceThenPin -> MapFindExecPin -> MapFindThenPin
+			CompilerContext.MovePinLinksToIntermediate(*EventThenPin, *MapFindThenPin);
+			CompilerContext.MovePinLinksToIntermediate(*ContextOutputPin, *MapFindReturnValuePin);
+			EventThenPin->MakeLinkTo(SequenceExecPin);
+			FirstSequenceThenPin->MakeLinkTo(MapFindExecPin);
+
+			// finally wire the second sequence then pin to a function call to remove the captured context value
+			const auto FunctionName_Remove = UGWBWildcardValueCache::GetRemoveFunctionName(ContextType.PinCategory, ContextType.PinSubCategoryObject.Get());
+			UK2Node_CallFunction* RemoveWildcardCacheItemFunctionNode = CompilerContext.SpawnIntermediateNode<UK2Node_CallFunction>(this, SourceGraph);
+			RemoveWildcardCacheItemFunctionNode->FunctionReference.SetExternalMember(FName(FunctionName_Remove), UGWBWildcardValueCache::StaticClass());
+			RemoveWildcardCacheItemFunctionNode->AllocateDefaultPins();
+			UEdGraphPin* RemoveKeyPin = RemoveWildcardCacheItemFunctionNode->FindPin(TEXT("Key"));
+			UEdGraphPin* RemoveExecPin = RemoveWildcardCacheItemFunctionNode->GetExecPin();
+			WorkUnitHandleReturnedIdPin->MakeLinkTo(RemoveKeyPin); // Key (ID)
+			SecondSequenceThenPin->MakeLinkTo(RemoveExecPin);
+		}
+		
 	}
 	
 	// Break any remaining links to our original pins
