@@ -5,24 +5,24 @@
 #include "CoreMinimal.h"
 #include "GWBTimeSlicedLoopScope.h"
 #include "Components/GWBTimeSlicer.h"
-#include "GWBTimeSliceScopedHandle.generated.h"
+#include "GWBTimeSlicedScope.generated.h"
 
 /**
  * @brief Manages resetting time slicer used budgets back to 0. Define one of these inside a function but outside a loop and when it goes out of scope it resets the time slice budgets.
  * @see `FGWBTimeSlicedLoopScope`
  */
 USTRUCT()
-struct GWBTIMESLICER_API FGWBTimeSliceScopedHandle
+struct GWBTIMESLICER_API FGWBTimeSlicedScope
 {
 	GENERATED_BODY()
 	
-	FGWBTimeSliceScopedHandle()
+	FGWBTimeSlicedScope()
 			: Id(NAME_None)
 			,WorldContextObject(nullptr)
 	{
 	}
 
-	FGWBTimeSliceScopedHandle(const UObject* WorldContext, const FName Id)
+	FGWBTimeSlicedScope(const UObject* WorldContext, const FName Id)
 			: Id(Id)
 			,WorldContextObject(WorldContext)
 	{
@@ -30,7 +30,7 @@ struct GWBTIMESLICER_API FGWBTimeSliceScopedHandle
 			->Reset();	
 	}
 
-	FGWBTimeSliceScopedHandle(const UObject* WorldContext, const FName Id, double FrameTimeBudgetIn, uint32 WorkCountBudgetIn)
+	FGWBTimeSlicedScope(const UObject* WorldContext, const FName Id, double FrameTimeBudgetIn, uint32 WorkCountBudgetIn)
 			: Id(Id)
 			,WorldContextObject(WorldContext)
 	{
@@ -40,7 +40,7 @@ struct GWBTIMESLICER_API FGWBTimeSliceScopedHandle
 			->Reset();	
 	}
 
-	~FGWBTimeSliceScopedHandle()
+	~FGWBTimeSlicedScope()
 	{
 		if (WorldContextObject.IsValid())
 		{

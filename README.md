@@ -40,7 +40,9 @@ Gameplay Work Balancer (GWB) is an Unreal Engine plugin that allows you to defin
 
 <details>
 <summary>Expand for an explainer diagram</summary>
+
 [![Runtime Explainer][explainer-image]](/)
+
 </details>
 
 ### Why do I need this?
@@ -245,12 +247,12 @@ void MyFunctionWithABigExpensiveLoop()
   static const int MaxCountAllowedPerFrame = 100;
 
   // resets used budgets when it goes out of scope
-  FGWBTimeSliceScopedHandle TimeSlicer(this, FName("OverlapsSlicer"), FrameBudget, MaxCountAllowedPerFrame);
+  FGWBTimeSlicedScope TimeSlicer(this, FName("OverlapsSlicer"), FrameBudget, MaxCountAllowedPerFrame);
 
   for (auto Overlap : OverlapsList)
   {
     // increments frame budget usage when it goes out of scope
-    FGWBTimeSlicedLoopScope TimeSlicedWork(this, FName("OverlapsSlicer"), FrameBudget, MaxCountAllowedPerFrame);
+    FGWBTimeSlicedLoopScope TimeSlicedWork = TimeSlicer.StartLoopScope();
     // if we're out of budget break the loop
     if (TimeSlicedWork.IsOverBudget()) break;
     // do your expensive work

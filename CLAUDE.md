@@ -48,7 +48,7 @@ The plugin features a sophisticated **modifier system** for runtime behavior cus
 
 ### Time Slicing Utilities
 
-- **FGWBTimeSliceScopedHandle** / **FGWBTimeSlicedLoopScope** - Manual time slicing for custom loops
+- **FGWBTimeSlicedScope** / **FGWBTimeSlicedLoopScope** - Manual time slicing for custom loops
 - **BUDGETED_FOR_LOOP** macro - Convenient wrapper for time-sliced iteration over containers
 - **FBudgetedLoopHandle** - Provides early loop termination capabilities
 

@@ -2,7 +2,7 @@
 #include "GWBRuntimeModule.h"
 #include "GWBSubsystem.h"
 #include "DataTypes/GWBTimeSlicedLoopScope.h"
-#include "DataTypes/GWBTimeSliceScopedHandle.h"
+#include "DataTypes/GWBTimeSlicedScope.h"
 #include "DataTypes/GWBWorkUnitHandle.h"
 #include "Extensions/Modifiers.h"
 #include "Stats.h"
@@ -159,7 +159,7 @@ void UGWBManager::DoWork()
 	int WorkCountBudget = CVarGWB_WorkCountBudget.GetValueOnGameThread();
 
 	// when this struct goes out of scope it's destructor will reset the time slicer we use to budget the gameplay work balancer
-	FGWBTimeSliceScopedHandle TimeSlicer(this, FName("GameplayWorkBalancer"), FrameBudget, WorkCountBudget);
+	FGWBTimeSlicedScope TimeSlicer(this, FName("GameplayWorkBalancer"), FrameBudget, WorkCountBudget);
 
 	const double TimeSinceLastWork = FPlatformTime::Seconds() - TimeSlicer.GetLastResetTimestamp();
 	OnBeforeDoWorkDelegate.Broadcast(TimeSinceLastWork);
@@ -274,7 +274,7 @@ void UGWBManager::DoWorkForGroup(FGWBWorkGroup& WorkGroup)
 	SCOPE_CYCLE_COUNTER(STAT_DoWorkForGroup);
 
 	// when this struct goes out of scope it's destructor will reset the time slicer we use to budget the group
-	FGWBTimeSliceScopedHandle GroupTimeSliceHandle(this, WorkGroup.Def.Id);
+	FGWBTimeSlicedScope GroupTimeSliceHandle(this, WorkGroup.Def.Id);
 	
 	// allow extensions to plug in to modify the frame budget
 	double FrameBudget = (double)CVarGWB_FrameBudget.GetValueOnGameThread();

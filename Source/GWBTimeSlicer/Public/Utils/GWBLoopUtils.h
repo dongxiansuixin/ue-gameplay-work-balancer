@@ -4,6 +4,7 @@
 #include "Engine/BlueprintGeneratedClass.h"
 #include "Kismet/BlueprintFunctionLibrary.h"
 #include "DataTypes/GWBTimeSlicedLoopScope.h"
+#include "DataTypes/GWBTimeSlicedScope.h"
 
 // C++20 std::source_location support
 #if __cplusplus >= 202002L && __has_include(<source_location>)
@@ -119,9 +120,9 @@ namespace GWBLoopUtils
         uint32 LocationHash = GetTypeHash(LocationString);
         FName UniqueId = *FString::Printf(TEXT("BudgetedLoop_%u"), LocationHash);
         
-        // Create the time-sliced loop scope
-        FGWBTimeSlicedLoopScope TimeSlicedWork(WorldContext, UniqueId, FrameBudget, MaxWorkCount);
-        
+        // Create the time-sliced reset scope
+        FGWBTimeSlicedScope TimeSlicer(WorldContext, UniqueId, FrameBudget, MaxWorkCount);
+
         // Create loop handle for break functionality
         FBudgetedLoopHandle LoopHandle;
         LoopHandle.Reset(); // Ensure clean state
@@ -129,6 +130,7 @@ namespace GWBLoopUtils
         // Iterate through the array
         for (int32 Index = 0; Index < Array.Num(); ++Index)
         {
+            FGWBTimeSlicedLoopScope TimeSlicedWork = TimeSlicer.StartLoopScope();
             // Check if we're over budget OR user requested break
             if (TimeSlicedWork.IsOverBudget() || LoopHandle.ShouldBreak())
             {

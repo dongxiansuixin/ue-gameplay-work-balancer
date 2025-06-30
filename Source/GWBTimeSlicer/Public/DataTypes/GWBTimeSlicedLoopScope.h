@@ -41,11 +41,11 @@
  * ```
  * {
  *   // resets used budgets when it goes out of scope
- *   FGWBTimeSliceScopedHandle TimeSlicer(this, FName("OverlapsSlicer"), FrameBudget, MaxCountAllowedPerFrame);
+ *   FGWBTimeSlicedScope TimeSlicer(this, FName("OverlapsSlicer"), FrameBudget, MaxCountAllowedPerFrame);
  *   for (...)
  *   {
  *     // increments used up budgets when it goes out of scope
- *     FGWBTimeSlicedLoopScope TimeSlicedWork(this, FName("OverlapsSlicer"), FrameBudget, MaxCountAllowedPerFrame);
+ *     FGWBTimeSlicedLoopScope TimeSlicedWork = TimeSlicer.StartLoopScope();
  *   }
  * }
  * ```

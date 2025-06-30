@@ -69,8 +69,8 @@ void UGWBLoopUtilsBlueprintLibrary::BudgetedForLoopBlueprint(
         UniqueId = *CallSiteId;
     }
     
-    // Create the time-sliced loop scope
-    FGWBTimeSlicedLoopScope TimeSlicedWork(WorldContextObject, UniqueId, FrameBudget, MaxWorkCount);
+    // Create the time-sliced reset scope
+    FGWBTimeSlicedScope TimeSlicer(WorldContextObject, UniqueId, FrameBudget, MaxWorkCount);
     
     // Create loop handle for break functionality
     FBudgetedLoopHandle LoopHandle;
@@ -79,6 +79,7 @@ void UGWBLoopUtilsBlueprintLibrary::BudgetedForLoopBlueprint(
     // Iterate through the array count
     for (int32 Index = 0; Index < ArrayCount; ++Index)
     {
+        FGWBTimeSlicedLoopScope TimeSlicedWork = TimeSlicer.StartLoopScope();
         // Check if we're over budget OR user requested break
         if (TimeSlicedWork.IsOverBudget() || LoopHandle.ShouldBreak())
         {
