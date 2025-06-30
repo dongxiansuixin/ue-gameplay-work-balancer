@@ -12,7 +12,7 @@
 <!-- PROJECT LOGO -->
 <br />
 <div align="center">
-  <a href="https://github.com/eanticev/UE-GameplayWorkBalancer">
+  <a href="https://github.com/eanticev/ue-gameplay-work-balancer">
     <img src="Resources/Logo.png" alt="Logo" width="80" height="80">
   </a>
   <h3 align="center">Gameplay Work Balancer</h3>
@@ -23,9 +23,9 @@
     &middot;
     <a href="#Getting-Started">Roadmap</a>
     &middot;
-    <a href="https://github.com/eanticev/UE-GameplayWorkBalancer/issues/new?labels=bug&template=bug-report---.md">Report Bug</a>
+    <a href="https://github.com/eanticev/ue-gameplay-work-balancer/issues/new?labels=bug&template=bug-report---.md">Report Bug</a>
     &middot;
-    <a href="https://github.com/eanticev/UE-GameplayWorkBalancer/issues/new?labels=enhancement&template=feature-request---.md">Request Feature</a>
+    <a href="https://github.com/eanticev/ue-gameplay-work-balancer/issues/new?labels=enhancement&template=feature-request---.md">Request Feature</a>
   </p>
 </div>
 
@@ -318,16 +318,16 @@ Distributed under the MIT License. See `LICENSE` for more information.
 
 <!-- MARKDOWN LINKS & IMAGES -->
 <!-- https://www.markdownguide.org/basic-syntax/#reference-style-links -->
-[contributors-shield]: https://img.shields.io/github/contributors/eanticev/UE-GameplayWorkBalancer.svg?style=for-the-badge
-[contributors-url]: https://github.com/eanticev/UE-GameplayWorkBalancer/graphs/contributors
-[forks-shield]: https://img.shields.io/github/forks/eanticev/UE-GameplayWorkBalancer.svg?style=for-the-badge
-[forks-url]: https://github.com/eanticev/UE-GameplayWorkBalancer/network/members
-[stars-shield]: https://img.shields.io/github/stars/eanticev/UE-GameplayWorkBalancer.svg?style=for-the-badge
-[stars-url]: https://github.com/eanticev/UE-GameplayWorkBalancer/stargazers
-[issues-shield]: https://img.shields.io/github/issues/eanticev/UE-GameplayWorkBalancer.svg?style=for-the-badge
-[issues-url]: https://github.com/eanticev/UE-GameplayWorkBalancer/issues
-[license-shield]: https://img.shields.io/github/license/eanticev/UE-GameplayWorkBalancer.svg?style=for-the-badge
-[license-url]: https://github.com/eanticev/UE-GameplayWorkBalancer/blob/master/LICENSE
+[contributors-shield]: https://img.shields.io/github/contributors/eanticev/ue-gameplay-work-balancer.svg?style=for-the-badge
+[contributors-url]: https://github.com/eanticev/ue-gameplay-work-balancer/graphs/contributors
+[forks-shield]: https://img.shields.io/github/forks/eanticev/ue-gameplay-work-balancer.svg?style=for-the-badge
+[forks-url]: https://github.com/eanticev/ue-gameplay-work-balancer/network/members
+[stars-shield]: https://img.shields.io/github/stars/eanticev/ue-gameplay-work-balancer.svg?style=for-the-badge
+[stars-url]: https://github.com/eanticev/ue-gameplay-work-balancer/stargazers
+[issues-shield]: https://img.shields.io/github/issues/eanticev/ue-gameplay-work-balancer.svg?style=for-the-badge
+[issues-url]: https://github.com/eanticev/ue-gameplay-work-balancer/issues
+[license-shield]: https://img.shields.io/github/license/eanticev/ue-gameplay-work-balancer.svg?style=for-the-badge
+[license-url]: https://github.com/eanticev/ue-gameplay-work-balancer/blob/master/LICENSE
 [linkedin-shield]: https://img.shields.io/badge/-LinkedIn-black.svg?style=for-the-badge&logo=linkedin&colorB=555
 [linkedin-url]: https://linkedin.com/in/emilanticevic/
 
