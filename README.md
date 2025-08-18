@@ -306,7 +306,7 @@ Distributed under the MIT License. See `LICENSE` for more information.
 ## 📞 Contact
 
 - Emil Anticevic - [@eanticev](https://twitter.com/eanticev)
-- Collin Hover - [@ckhover](https://twitter.com/CollinHover)
+- Collin Hover - [@collinhover](https://collinhover.github.io/)
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
@@ -315,6 +315,7 @@ Distributed under the MIT License. See `LICENSE` for more information.
 ## 🙏 Acknowledgments
 
 * Collin Hover built the original version of this plugin at Counterplay Games. That version had deep integration with our custom promise library and a lot more features (for example: reprioritization) we haven't implemented as extensions into this plugin yet.
+* Eric Karl made significant contributions to the version of this plugin we used at Counterplay Games.
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
